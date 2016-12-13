@@ -20,6 +20,7 @@ Function PasswordGeneratorFORM
 
     $passgenForm_Load = {
         ForEach ($control In $passgenForm.Controls) { $control.Font = $sysFont }
+        $nud_SpecLength.Maximum = ($nud_PassLength.Value / 2)
         $opt_Characters_CheckedChanged.Invoke()
     }
 
@@ -73,7 +74,7 @@ Function PasswordGeneratorFORM
         $txt_Passwords.Text = $passwordList.ToString()
     }
 
-    $nud_PassLength_ValueChanged    = { $nud_SpecLength.Maximum = ($nud_PassLength.Value - 4) }
+    $nud_PassLength_ValueChanged    = { $nud_SpecLength.Maximum = ($nud_PassLength.Value / 2) }
 
     $passgenForm_Cleanup_FormClosed = {
         $tab_Pages.Remove_SelectedIndexChanged($tab_Pages_SelectedIndexChanged)
@@ -88,9 +89,9 @@ Function PasswordGeneratorFORM
 #endregion
 #region Form Controls
     $passgenForm    = New-Object 'System.Windows.Forms.Form'
-	$tab_Pages      = New-Object 'System.Windows.Forms.TabControl'
-	$tab_Page1      = New-Object 'System.Windows.Forms.TabPage'
-	$tab_Page2      = New-Object 'System.Windows.Forms.TabPage'
+    $tab_Pages      = New-Object 'System.Windows.Forms.TabControl'
+    $tab_Page1      = New-Object 'System.Windows.Forms.TabPage'
+    $tab_Page2      = New-Object 'System.Windows.Forms.TabPage'
     $lbl_PassLength = New-Object 'System.Windows.Forms.Label'
     $nud_PassLength = New-Object 'System.Windows.Forms.NumericUpDown'
     $opt_Characters = New-Object 'System.Windows.Forms.RadioButton'
@@ -110,8 +111,8 @@ Function PasswordGeneratorFORM
 
     $passgenForm.SuspendLayout()
     $tab_Pages.SuspendLayout()
-	$tab_Page1.SuspendLayout()
-	$tab_Page2.SuspendLayout()
+    $tab_Page1.SuspendLayout()
+    $tab_Page2.SuspendLayout()
 
     $passgenForm.FormBorderStyle     = 'FixedDialog'
     $passgenForm.MaximizeBox         = $False
@@ -125,23 +126,23 @@ Function PasswordGeneratorFORM
     $passgenForm.Add_Load($passgenForm_Load)
     $passgenForm.Add_FormClosed($passgenForm_Cleanup_FormClosed)
 
-	$tab_Pages.Location              = '12, 12'
-	$tab_Pages.SelectedIndex         = 0
-	$tab_Pages.Size                  = '370, 358'
-	$tab_Pages.TabIndex              = 0
+    $tab_Pages.Location              = '12, 12'
+    $tab_Pages.SelectedIndex         = 0
+    $tab_Pages.Size                  = '370, 358'
+    $tab_Pages.TabIndex              = 0
     $tab_Pages.Padding               = '12, 6'
     $tab_Pages.Add_SelectedIndexChanged($tab_Pages_SelectedIndexChanged)
     $passgenForm.Controls.Add($tab_Pages)
 
-	$tab_Page1.Text                  = 'Settings'
-	$tab_Page1.TabIndex              = 0
-	$tab_Page1.BackColor             = 'Control'
-	$tab_Pages.Controls.Add($tab_Page1)
+    $tab_Page1.Text                  = 'Settings'
+    $tab_Page1.TabIndex              = 0
+    $tab_Page1.BackColor             = 'Control'
+    $tab_Pages.Controls.Add($tab_Page1)
 
-	$tab_Page2.Text                  = 'Passwords'
-	$tab_Page2.TabIndex              = 0
-	$tab_Page2.BackColor             = 'Control'
-	$tab_Pages.Controls.Add($tab_Page2)
+    $tab_Page2.Text                  = 'Passwords'
+    $tab_Page2.TabIndex              = 0
+    $tab_Page2.BackColor             = 'Control'
+    $tab_Pages.Controls.Add($tab_Page2)
 
     $lbl_PassLength.Location         = '  9,   9'
     $lbl_PassLength.Size             = '277,  20'
@@ -214,7 +215,7 @@ Function PasswordGeneratorFORM
 
     $lbl_SpecLength.Location         = ' 30, 258'
     $lbl_SpecLength.Size             = '256,  20'
-    $lbl_SpecLength.Text             = 'Number Of Special Characters :'
+    $lbl_SpecLength.Text             = 'Minimum Number Of Special Characters :'
     $lbl_SpecLength.TextAlign        = 'MiddleLeft'
     $tab_Page1.Controls.Add($lbl_SpecLength)
 
@@ -249,8 +250,8 @@ Function PasswordGeneratorFORM
     $passgenForm.CancelButton        = $btn_Close
     $passgenForm.Controls.Add($btn_Close)
 
-	$tab_Page1.ResumeLayout()
-	$tab_Page2.ResumeLayout()
+    $tab_Page1.ResumeLayout()
+    $tab_Page2.ResumeLayout()
     $tab_Pages.ResumeLayout()
     $passgenForm.ResumeLayout()
 
