@@ -21,6 +21,5 @@ GUI form to generate random passwords for you
 ### 
 
 ###Show-InputForm
-Multiple use GUI for asking for a variety of input types that can also perform simple validation
-See https://imgur.com/a/PKimt for images
+Multiple use GUI for asking for a variety of input types that can also perform simple validation.  See https://imgur.com/a/PKimt for images
 ###
