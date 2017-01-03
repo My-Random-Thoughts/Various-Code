@@ -443,8 +443,19 @@ Function Show-InputForm
     $lbl_Description.Location      = ' 12,  12'
     $lbl_Description.Size          = '370,  48'
     $lbl_Description.Font          = $sysFont
-    $lbl_Description.Text          =  $($Description.Trim())
+    $lbl_Description.Text          = $($Description.Trim())
     $frm_Main.Controls.Add($lbl_Description)
+
+    If ($Validation -ne 'None')
+    {
+        $lbl_Validation            = New-Object 'System.Windows.Forms.Label'
+        $lbl_Validation.Location   = '212,  60'
+        $lbl_Validation.Size       = '170,  15'
+        $lbl_Validation.Font       = $sysFont
+        $lbl_Validation.Text       = "Validation: $Validation"
+        $lbl_Validation.TextAlign  = 'BottomRight'
+        $frm_Main.Controls.Add($lbl_Validation)
+    }
 
     $btn_Accept                    = New-Object 'System.Windows.Forms.Button'
     $btn_Accept.Location           = '307, 110'
