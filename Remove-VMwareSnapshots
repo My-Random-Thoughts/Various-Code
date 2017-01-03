@@ -1,0 +1,81 @@
+Remove-Variable * -ErrorAction SilentlyContinue
+Clear-Host
+
+Function Remove-VMwareSnapshots ([string[]]$ComputerName)
+{
+    Write-Host 'Looking for VMware.VimAutomation.Core module/snapin'
+    If ((Get-Module -ListAvailable -Name VMware.VimAutomation.Core) -ne $null)
+    {
+	    Write-Host 'Loading module'
+	    Import-Module VMware.VimAutomation.Core | Out-null
+    }
+    ElseIf ((Get-PSSnapin -Registered -Name 'VMware.VimAutomation.Core' -ErrorAction SilentlyContinue) -ne $null)
+    {
+        Write-Host 'Loading snapin'
+        Add-PsSnapin VMware.VimAutomation.Core | Out-null
+    }
+    Else { Throw 'PowerCLI module/snapin not found' }
+    Write-Host ''
+
+    # Get list of snapshots, and find ones to remove
+    ForEach ($VC In $ComputerName)
+    {
+        # Connect to VIServer
+        Write-Host "Connecting to: $VC ... " -NoNewline
+        $cVIs = Connect-VIServer -Server $VC -WarningAction SilentlyContinue -WarningVariable wvNull -ErrorAction SilentlyContinue
+
+        If ($cVIs -eq $null) { Write-Host 'Failed: Skipping Server' }
+        Else
+        {
+            Write-Host 'Done'
+            Write-Host '   Getting Snapshot List ... ' -NoNewline
+
+            $SnapShots = Get-VM -Server $cVIs | Get-Snapshot
+            Write-Host 'Done - ' -NoNewline
+            If (($SnapShots | Measure).Count -eq 0)
+            {
+                Write-Host 'No Snapshots Found'
+                Break
+            }
+            Else
+            {
+                $toRemove = @()
+                ForEach ($SnapShot In $SnapShots)
+                {
+                    [System.Text.RegularExpressions.Group]$Match = [regex]::Match($SnapShot, '\(Remove On [0-9]{2}\/[0-9]{2}\/[0-9]{4}\)')
+                    If ($($Match.Success) -eq $true)
+                    {
+                        [datetime]$removeOn  = ($($Match.Value).Substring(11, 10) -as [datetime])
+                        If ((Get-Date) -ge $removeOn) { $toRemove += $SnapShot }
+                    }
+                    Else{ }    # String not found, ignore snapshot
+                }
+            }
+
+            # Take removal list and remove them (5 at a time)    
+            [int]$iCnt = 0
+            Write-Host "   Removing $($toRemove.Count) Snapshots ... " -NoNewline
+            While ($iCnt -lt ($toRemove.Count))
+            {
+                Remove-Snapshot -Snapshot $toRemove[$iCnt] -RunAsync -RemoveChildren -Confirm:$false | Out-Null
+                $Task = (Get-Task -Status 'Running' | Where { $_.Name -eq 'RemoveSnapshot_Task' })
+
+                While ($Task.Count -gt 4)
+                {
+                    Start-Sleep -Seconds 10
+                    $Task = (Get-Task -Status 'Running' | Where { $_.Name -eq 'RemoveSnapshot_Task' })
+                }
+                $iCnt++
+            }
+            Write-Host 'Done'
+
+            # Disconnect from VIServer
+            Write-Host "Disconnecting from: $VC ... " -NoNewline
+            Disconnect-VIServer -Server $VC -Confirm:$false -ErrorAction SilentlyContinue
+            Write-Host 'Done'
+            Write-Host ''
+        }
+    }
+}
+
+Remove-VMwareSnapshots -ComputerName wibble
