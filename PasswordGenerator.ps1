@@ -57,9 +57,18 @@ Function PasswordGeneratorFORM
             $txt_Passwords.Text = ''
             For ($j = 0; $j -le 100; $j++)
             {
-                [string]$newPassword = ''
-                $newPassword = ((Get-Random -InputObject ($pass_toUse.ToCharArray()) -Count ($nud_PassLength.Value)) -join '')
-                $passwordList.AppendLine($newPassword)
+                If (($pass_toUse.Length) -lt ($nud_PassLength.Value))
+                {
+                    [System.Text.StringBuilder]$newPassword = ''
+                    For ($i = 0; $i -lt ($nud_PassLength.Value); $i++) { $newPassword.Append((Get-Random -InputObject ($pass_toUse.ToCharArray()) -Count 1)) }
+                    $passwordList.AppendLine($newPassword.ToString())
+                }
+                Else
+                {
+                    [string]$newPassword = ''
+                    $newPassword = ((Get-Random -InputObject ($pass_toUse.ToCharArray()) -Count ($nud_PassLength.Value)) -join '')
+                    $passwordList.AppendLine($newPassword)
+                }
             }
         }
         Else
