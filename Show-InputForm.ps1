@@ -336,30 +336,30 @@ Function Show-InputForm
         # Validate
         Switch ($Validation)
         {
-            'AZ'      { $ValidateResult = ($StringToCheck -match "^[A-Za-z]+$");            Break }    # Letters only (A-Za-z)
-            'Numeric' { $ValidateResult = ($StringToCheck -match '^(-)?([\d]+)?\.?[\d]+$'); Break }    # Both integer and decimal numbers
-            'Integer' { $ValidateResult = ($StringToCheck -match '^(-)?[\d]+$');            Break }    # Integer numbers only
-            'Decimal' { $ValidateResult = ($StringToCheck -match '^(-)?[\d]+\.[\d]+$');     Break }    # Decimal numbers only
-            'Symbol'  { $ValidateResult = ($StringToCheck -match '^[^A-Za-z0-9]+$');        Break }    # Any symbol (not numbers or letters)
-            'URL'     {                                                                                # URL
+            'AZ'      { $ValidateResult = ($StringToCheck -match "^[A-Za-z]+$");            Break }              # Letters only (A-Za-z)
+            'Numeric' { $ValidateResult = ($StringToCheck -match '^(-)?([\d]+)?\.?[\d]+$'); Break }              # Both integer and decimal numbers
+            'Integer' { $ValidateResult = ($StringToCheck -match '^(-)?[\d]+$');            Break }              # Integer numbers only
+            'Decimal' { $ValidateResult = ($StringToCheck -match '^(-)?[\d]+\.[\d]+$');     Break }              # Decimal numbers only
+            'Symbol'  { $ValidateResult = ($StringToCheck -match '^[^A-Za-z0-9]+$');        Break }              # Any symbol (not numbers or letters)
+            'URL'     {                                                                                          # URL
                 [url]    $url       = ''
-                [boolean]$ValidURL1 = ($StringToCheck -match '^(ht|(s)?f|)tp(s)?:\/\/')    # http(s):// or (s)ftp(s)://
+                [boolean]$ValidURL1 = ($StringToCheck -match '^(ht|(s)?f|)tp(s)?:\/\/(.*)\/([a-z]+\.[a-z]+)')    # http(s):// or (s)ftp(s)://
                 [boolean]$ValidURL2 = ([System.Uri]::TryCreate($StringToCheck, [System.UriKind]::Absolute, [ref]$url))
                 $ValidateResult     = ($ValidURL1 -and $ValidURL2)
                 Break
             }
-            'Email'   {                                                                                # email@address.validation
+            'Email'   {                                                                                          # email@address.validation
                 Try   { $ValidateResult = (($StringToCheck -as [System.Net.Mail.MailAddress]).Address -eq $StringToCheck) }
                 Catch { $ValidateResult =   $false }
                 Break
             }
-            'IPv4'    {                                                                                # IPv4 address (1.2.3.4)
+            'IPv4'    {                                                                                          # IPv4 address (1.2.3.4)
                 [boolean]$Octets  = (($StringToCheck.Split('.') | Measure-Object).Count -eq 4)
                 [boolean]$ValidIP =  ($StringToCheck -as [ipaddress]) -as [boolean]
                 $ValidateResult   =  ($ValidIP -and $Octets)
                 Break
             }
-            'IPv6'    {                                                                                # IPv6 address (REGEX from 'https://www.powershellgallery.com/packages/IPv6Regex/1.1.1')
+            'IPv6'    {                                                                                          # IPv6 address (REGEX from 'https://www.powershellgallery.com/packages/IPv6Regex/1.1.1')
                 [string]$IPv6 = @"
                     ^((([0-9a-f]{1,4}:){7}([0-9a-f]{1,4}|:))|(([0-9a-f]{1,4}:){6}(:[0-9a-f]{1,4}|((25[0-5]|2[0-4]\d|1\d\d|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4]\d|1\d\d|[1-9]?[0-9])|:))|(([0-9a-f]
                     {1,4}:){5}(((:[0-9a-f]{1,4}){1,2})|:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4]\d|1\d\d|[1-9]?[0-9])|:))|(([0-9a-f]{1,4}:){4}(((:[0-9a-f]{1,4}){1,3})|((:[0-9a-f]
@@ -371,7 +371,7 @@ Function Show-InputForm
                 $ValidateResult = ($StringToCheck -match $IPv6)
                 Break
             }
-            Default   {                                                                                # No Validation
+            Default   {                                                                                          # No Validation
                 $ValidateResult = $true
             }
         }
@@ -452,7 +452,7 @@ Function Show-InputForm
         $lbl_Validation.Location   = '212,  60'
         $lbl_Validation.Size       = '170,  15'
         $lbl_Validation.Font       = $sysFont
-        $lbl_Validation.Text       = "Validation: $Validation"
+        $lbl_Validation.Text       = "Validation: $($Validation.ToUpper())"
         $lbl_Validation.TextAlign  = 'BottomRight'
         $frm_Main.Controls.Add($lbl_Validation)
     }
