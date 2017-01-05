@@ -34,7 +34,7 @@
     Long description text of what the user is expected to enter into the form
 
 .PARAMETER Validation
-    One of the following: 'None', 'AZ', 'Numeric', 'Integer', 'Decimal', 'Symbol', 'URL', 'Email', 'IPv4' or 'IPv6'
+    One of the following: 'None', 'AZ', 'Numeric', 'Integer', 'Decimal', 'Symbol', 'File', 'URL', 'Email', 'IPv4' or 'IPv6'
     Can only be used with the following types: 'Simple', 'Password' and 'List'
 
 .PARAMETER InputList
@@ -95,7 +95,7 @@ Function Show-InputForm
                                         [string]  $Type,
         [parameter(Mandatory=$true )]   [string]  $Title,
         [parameter(Mandatory=$true )]   [string]  $Description,
-        [parameter(Mandatory=$false)] [ValidateSet('None', 'AZ', 'Numeric', 'Integer', 'Decimal', 'Symbol', 'URL', 'Email', 'IPv4', 'IPv6')]
+        [parameter(Mandatory=$false)] [ValidateSet('None', 'AZ', 'Numeric', 'Integer', 'Decimal', 'Symbol', 'File', 'URL', 'Email', 'IPv4', 'IPv6')]
                                         [string]  $Validation = 'None',
         [parameter(Mandatory=$false)]   [string[]]$InputList,
         [parameter(Mandatory=$false)]   [string[]]$CurrentValue,
@@ -341,6 +341,10 @@ Function Show-InputForm
             'Integer' { $ValidateResult = ($StringToCheck -match '^(-)?[\d]+$');            Break }              # Integer numbers only
             'Decimal' { $ValidateResult = ($StringToCheck -match '^(-)?[\d]+\.[\d]+$');     Break }              # Decimal numbers only
             'Symbol'  { $ValidateResult = ($StringToCheck -match '^[^A-Za-z0-9]+$');        Break }              # Any symbol (not numbers or letters)
+            'File'    {                                                                                          # File name with 3 letter extension
+                Try { [System.IO.Path]::GetFullPath($StringToCheck); $ValidateResult = $true } Catch { $ValidateResult = $false }
+                Break
+            }
             'URL'     {                                                                                          # URL
                 [url]    $url       = ''
                 [boolean]$ValidURL1 = ($StringToCheck -match '^(ht|(s)?f|)tp(s)?:\/\/(.*)\/([a-z]+\.[a-z]+)')    # http(s):// or (s)ftp(s)://
