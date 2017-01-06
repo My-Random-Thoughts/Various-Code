@@ -42,7 +42,7 @@ Function Remove-VMwareSnapshots ([string[]]$ComputerName)
                 $toRemove = @()
                 ForEach ($SnapShot In $SnapShots)
                 {
-                    [System.Text.RegularExpressions.Group]$Match = [regex]::Match($SnapShot, '\(Remove On [0-9]{2}\/[0-9]{2}\/[0-9]{4}\)')
+                    [System.Text.RegularExpressions.Group]$Match = [regex]::Match($($SnapShot.Description), '\(Remove On [0-9]{2}\/[0-9]{2}\/[0-9]{4}\)')
                     If ($($Match.Success) -eq $true)
                     {
                         [datetime]$removeOn  = ($($Match.Value).Substring(11, 10) -as [datetime])
