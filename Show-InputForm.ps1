@@ -535,7 +535,9 @@ Function Show-InputForm
             $comboBox.Font          = $sysFont
             $comboBox.DropDownStyle = 'DropDownList'
             $frm_Main.Controls.Add($comboBox)
-            $comboBox.Items.AddRange(($InputList.Trim())) | Out-Null
+            [string[]]$InputTrim = @()
+            $InputList | ForEach { $InputTrim += ($_.Trim()) }
+            $comboBox.Items.AddRange($InputTrim) | Out-Null
             $frm_Main.Add_Shown({$comboBox.Select()})
             If ([string]::IsNullOrEmpty($CurrentValue) -eq $false) { $comboBox.SelectedItem = $CurrentValue[0] } Else { $comboBox.SelectedIndex = -1 }
             Break
