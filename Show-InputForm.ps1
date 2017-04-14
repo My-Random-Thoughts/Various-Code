@@ -114,9 +114,12 @@ Function Show-InputForm
         ForEach ($Control In $frm_Main.Controls) { If ($control -is [System.Windows.Forms.CheckBox]) { $control.Checked = $checked } }
     }
 
-    $AddButton_Click = { AddButton_Click -BoxNumber (($frm_Main.Controls.Count - 5) / 2) -Value '' -Override $false -Type 'TEXT' }
-    Function AddButton_Click ( [int]$BoxNumber, [string]$Value, [boolean]$Override, [string]$Type )
+    $AddButton_Click = { AddButton_Click -Value '' -Override $false -Type 'TEXT' }
+    Function AddButton_Click ( [string]$Value, [boolean]$Override, [string]$Type )
     {
+        [int]$BoxNumber = 0
+        ForEach ($Control In $frm_Main.Controls) { If (($Control -is [System.Windows.Forms.TextBox]) -or ($Control -is [System.Windows.Forms.CheckBox])) { $BoxNumber++ } }
+
         If ($Type -eq 'TEXT')
         {
             ForEach ($control In $frm_Main.Controls) {
@@ -167,16 +170,17 @@ Function Show-InputForm
         ElseIf ($Type -eq 'CHECK')
         {
             # Add new check box
-            $chkBox                = New-Object 'System.Windows.Forms.CheckBox'
-            $chkBox.Location       = " 12, $(75 + ($BoxNumber * 26))"
-            $chkBox.Size           = '370,   20'
-            $chkBox.Font           = $sysFont
-            $chkBox.Name           = "chkBox$BoxNumber"
-            $chkBox.Text           = $Value
-            $chkBox.TextAlign      = 'MiddleLeft'
+            $chkBox                 = New-Object 'System.Windows.Forms.CheckBox'
+            $chkBox.Location        = " 12, $(75 + ($BoxNumber * 26))"
+            $chkBox.Size            = '370,   20'
+            $chkBox.Font            = $sysFont
+            $chkBox.Name            = "chkBox$BoxNumber"
+            $chkBox.Text            = $Value
+            $chkBox.TextAlign       = 'MiddleLeft'
             $frm_Main.Controls.Add($chkBox)
             $frm_Main.Controls["chkbox$BoxNumber"].Select()
         }
+        Else { }
     }
 
     $kp_comboBox_SelectedIndexChanged = {
@@ -265,14 +269,14 @@ Function Show-InputForm
 
         ForEach ($Control In $frm_Main.Controls)
         {
-             If (($Control -is [System.Windows.Forms.TextBox]) -and ($Control.Visible -eq $true))
+            If (($Control -is [System.Windows.Forms.TextBox]) -and ($Control.Visible -eq $true))
             {
                 $Control.BackColor = 'Window'
                 If (($Type -eq 'LIST') -and ($Control.Text.Contains(';') -eq $true))
                 {
                     [string[]]$ControlText = ($Control.Text).Split(';')
                     $Control.Text = ''    # Remove current data so that it can be used as a landing control for the split data
-                    ForEach ($item In $ControlText) { AddButton_Click -BoxNumber (($frm_Main.Controls.Count - 5) / 2) -Value $item -Override $false -Type 'TEXT' }
+                    ForEach ($item In $ControlText) { AddButton_Click -Value $item -Override $false -Type 'TEXT' }
                 }
             }
         }
@@ -502,7 +506,7 @@ Function Show-InputForm
             $frm_Main.Controls.Add($AddButton)
 
             # Add initial textboxes
-            For ($i = 0; $i -le $numberOfTextBoxes; $i++) { AddButton_Click -BoxNumber $i -Value ($CurrentValue[$i]) -Override $true -Type 'TEXT' }
+            For ($i = 0; $i -le $numberOfTextBoxes; $i++) { AddButton_Click -Value ($CurrentValue[$i]) -Override $true -Type 'TEXT' }
             $frm_Main.Controls['textbox0'].Select()
             Break
         }
@@ -521,7 +525,7 @@ Function Show-InputForm
             [int]$i = 0
             ForEach ($item In $InputList)
             {
-                AddButton_Click -BoxNumber $i -Value ($item.Trim()) -Override $true -Type 'CHECK'
+                AddButton_Click -Value ($item.Trim()) -Override $true -Type 'CHECK'
                 If ([string]::IsNullOrEmpty($CurrentValue) -eq $false) { If ($CurrentValue.Contains($item.Trim())) { $frm_Main.Controls["chkBox$i"].Checked = $true } }
                 $i++
             }
