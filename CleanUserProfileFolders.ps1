@@ -23,7 +23,9 @@ Else
                         '\AppData\Local\Microsoft\Terminal Server Client\Cache',
                         '\AppData\Local\KVS\Enterprise Vault',
                         '\AppData\Local\CrashDumps',
-                        '\AppData\Local\Temp'
+                        '\AppData\Local\Temp',
+                        '\AppData\LocalLow\Sun\Java\Deployment\cache\6.0',
+                        '\AppData\Local\Microsoft\Microsoft.EnterpriseManagement.Monitoring.Console'
                        )
 Write-Host ' Complete'
 Write-Host 'Scanning User Folders... ' -NoNewline
