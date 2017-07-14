@@ -1,0 +1,221 @@
+#Requires       -Version 4
+Set-StrictMode  -Version 2
+Remove-Variable -Name * -Exclude VIServer, Username, ComputerName -ErrorAction SilentlyContinue
+Clear-Host
+
+[Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms') | Out-Null
+[Reflection.Assembly]::LoadWithPartialName('System.Data')          | Out-Null
+[Reflection.Assembly]::LoadWithPartialName('System.Drawing')       | Out-Null
+[System.Drawing.Font]$sysFont = [System.Drawing.SystemFonts]::MessageBoxFont
+[System.Windows.Forms.Application]::EnableVisualStyles()
+
+###################################################################################################
+#                                                                                                 #
+#  Required Section For Adding SubIcons To A ListView Control                                     #
+#                                                                                                 #
+###################################################################################################
+$SubIcons_DrawColumnHeader = {
+    [System.Windows.Forms.DrawListViewColumnHeaderEventArgs]$e = $_
+    $e.DrawDefault = $True
+    $e.DrawBackground()
+    $e.DrawText()
+}
+
+$SubIcons_DrawSubItem = {
+    [System.Windows.Forms.DrawListViewSubItemEventArgs]$e = $_
+
+    If ($e.SubItem.Text.Length -le 5) { $e.DrawDefault = $True }
+    Else
+    {
+        If ($e.SubItem.Text.Contains('|') -eq $True)
+        {
+            [System.Drawing.Image]$icon = ($imgResult.Images[$e.SubItem.Text.Split('|')[1] -as [int]])
+            [int]$xPos = ($e.SubItem.Bounds.X + (($e.SubItem.Bounds.Width  / 2) -as [int]) - (($icon.Width  /2) -as [int]))
+            [int]$yPos = ($e.SubItem.Bounds.Y + (($e.SubItem.Bounds.Height / 2) -as [int]) - (($icon.Height /2) -as [int]))
+        }
+
+        Switch ($e.SubItem.Text.Substring(0,5).ToUpper())
+        {
+            'ICON|'
+            {
+                $r = New-Object 'System.Drawing.Rectangle'($xPos, $yPos, $icon.Width, $icon.Height)
+
+                $e.DrawDefault = $false
+                $e.Graphics.DrawImage($icon, $r)
+            }
+
+            'BOTH|'
+            {
+                [int]$fPos = ((($e.SubItem.Bounds.Height - $sysFont.Height) / 2) -as [int])
+                $fColor    = New-Object 'System.Drawing.SolidBrush'($e.SubItem.ForeColor)
+
+                $rI = New-Object 'System.Drawing.Rectangle'($($e.SubItem.Bounds.X + 3), $yPos, $icon.Width, $icon.Height)
+                $rS = New-Object 'System.Drawing.PointF'   ($($e.SubItem.Bounds.X + 5 + $icon.Width), $($e.SubItem.Bounds.Y + $fPos))
+
+                $e.DrawDefault = $false
+                $e.Graphics.DrawImage($icon, $rI)
+                $e.Graphics.DrawString($e.SubItem.Text.Split('|')[2], $sysFont, $fColor, $rS)
+            }
+
+            Default { $e.DrawDefault = $True }
+        }
+    }
+}
+
+###################################################################################################
+#                                                                                                 #
+#  Display Main GUI Form                                                                          #
+#                                                                                                 #
+###################################################################################################
+Function Display-MainForm
+{
+#region FORM STARTUP / SHUTDOWN
+    $InitialFormWindowState        = New-Object 'System.Windows.Forms.FormWindowState'
+    $MainFORM_StateCorrection_Load = { $MainForm.WindowState = $InitialFormWindowState }
+
+    $MainFORM_Load = {
+        ForEach ($control In $MainForm.Controls) { $control.Font = $sysFont }
+
+        # Add random data
+        For ($i = 0; $i -le 5; $i++) { Add-NewListItem -ItemText ("SERVER-$([guid]::NewGuid().ToString().Substring(0,5))") -StartEdit $False }
+    }
+
+    $Form_Cleanup_FormClosed = {
+        $lstList.Remove_DrawSubItem($SubIcons_DrawSubItem)
+        $lstList.Remove_DrawColumnHeader($SubIcons_DrawColumnHeader)
+
+        $MainFORM.Remove_Load($MainFORM_Load)
+        $MainFORM.Remove_Load($MainFORM_StateCorrection_Load)
+        $MainFORM.Remove_FormClosing($MainFORM_FormClosing)
+    }
+#endregion
+###################################################################################################
+#region FORM Scripts
+    Function Add-NewListItem ([string]$ItemText, [boolean]$StartEdit)
+    {
+        $newItem      = New-Object 'System.Windows.Forms.ListViewItem'
+        $newItem.Text = $ItemText
+        $newItem.Name = [guid]::NewGuid().ToString()
+        $newItem.ImageIndex = 0
+        $newItem.SubItems.Add('BOTH|' + ('1','2' | Get-Random) + '|Cell Text')
+        For ($i = 1; $i -le 7; $i++) { $newItem.SubItems.Add('ICON|' + ('1','2' | Get-Random)) }
+
+        $lstList.Items.Add($newItem)
+        If ($StartEdit -eq $True) { $newItem.BeginEdit() }
+        $lstList.SelectedItems.Clear()
+    }
+
+#endregion
+###################################################################################################
+#region MAIN FORM
+    #
+    $MainFORM                           = New-Object 'System.Windows.Forms.Form'
+    $MainFORM.AutoScaleDimensions       = '6, 13'
+    $MainFORM.AutoScaleMode             = 'None'
+    $MainFORM.ClientSize                = '644, 272'
+    $MainFORM.FormBorderStyle           = 'FixedSingle'
+    $MainFORM.MaximizeBox               = $False
+    $MainFORM.MinimizeBox               = $False
+    $MainFORM.StartPosition             = 'CenterScreen'
+    $MainFORM.Text                      = 'VMware vSphere Guest Server Checker'
+    $MainFORM.Add_Load($MainFORM_Load)
+    $MainFORM.Add_Shown($MainFORM_Shown)
+    $MainFORM.Add_FormClosing($MainFORM_FormClosing)
+    $MainFORM.SuspendLayout()
+    #
+    # COMPUTER and TICK and CROSS icons
+    $imgResult                          = New-Object 'System.Windows.Forms.ImageList'
+    $imgResult.TransparentColor         = 'Transparent'
+    $imgResult_BinaryFomatter           = New-Object 'System.Runtime.Serialization.Formatters.Binary.BinaryFormatter'
+    $imgResult_MemoryStream             = New-Object 'System.IO.MemoryStream' (,[byte[]][System.Convert]::FromBase64String('
+        AAEAAAD/////AQAAAAAAAAAMAgAAAFdTeXN0ZW0uV2luZG93cy5Gb3JtcywgVmVyc2lvbj00LjAuMC4wLCBDdWx0dXJlPW5ldXRyYWwsIFB1YmxpY0tleVRva2VuPWI3N2E1YzU2MTkzNGUwODkFAQAAACZTeXN0
+        ZW0uV2luZG93cy5Gb3Jtcy5JbWFnZUxpc3RTdHJlYW1lcgEAAAAERGF0YQcCAgAAAAkDAAAADwMAAADgDAAAAk1TRnQBSQFMAgEBAwEAAQgBAAEIAQABEAEAARwBAAT/ASEBAAj/AUIBTQE2BwABNgMAASgDAAFA
+        AwABHAMAAQEBAAEgBgABHP8A/wD/AP8A/wD/ABsAAQEDBAEGAwoBDQMPARQDEgEZAxMBGgMTARoDEwEaAxMBGgMTARoDEgEZAw8BFAMKAQ4DBAEGAwABAcQAASQCIgE0AWQCVQGzAWQCVQGzAWQCVQGzAWQCVQGz
+        AWQCVQGzAWQCVQGzAWQCVQGzAWQCVQGzAWQCVQGzAWQCVQGzAWQCVQGzAWQCVQGzAWICUwGsAUUCPgFuAwoBDQcAAQEDBgEIAwwBEAMRARcDEwEaAxIBGQMRARcDDwEVAw0BEQMKAQ0DBwEKAwQBBgMCAQMDAAEB
+        CAADCgQOARMDEgEZAxIBGQMQARYDDQESAwsBDwMKAQ4DDQERAw8BFQMSARkDEgEZAw8BFAMKAQ5EAAFkAlgBoAHNArwB/wHSAsEB/wHSAsEB/wHSAsEB/wHSAsEB/wHSAsEB/wHSAsEB/wHSAsEB/wHSAsEB/wHS
+        AsEB/wHSAsEB/wHSAsEB/wHRAsAB/wG/Aq8B+AFIAkIBbgQAAwEBAgMLAQ8DFgEfAx4BLQEzAToBMgFmASMBXgEhAcwBLwEzAS8BVQMcASkDGAEiAxMBGgMOARMDCQEMAwQBBgMAAQEIAAMUARwDGgEmAjIBOgFk
+        AiEBXgHMAjIBOQFhAxkBJAMVAR0DFAEbAxcBIQIxATkBYAIhAV4BzAIyAToBZAMbAScDFAEcRAABRAI/AWMB0gLCAfoB8ALiAf8B6gLcAf8B3ALLAf8B4ALPAf8B7ALeAf8B7wLhAf8B5gLYAf8B3QLMAf8B3ALL
+        Af8B5wLXAf8B7gLgAf8B5wLXAf8B2QLIAf8BZwJbAZ0QAAErATEBKgFIASYBagEhAcwBIwGaARkB6AEqAWsBJgHEARwBHgEcASkkAAIqATEBSAIhAWoBzAIQAdgB/wIhAWoBzAIqATEBSAgAAioBMQFIAiEBagHM
+        AhAB2AH/AiEBagHMAioBMQFISAADDgESAXECZQGhAdoCzQH6Ae4C4QH/AeUC1AH/AfIC5wH/AfUC7AH/AfUC7AH/AfUC7AH/AesC3AH/AegC1wH/AfUC6wH/AfUC7AH/AfQC6wH/AdICwQH9AU0CRAHHDAABKwE1
+        ASoBSAEoAXUBIQHMAS4BuAEhAfQBIwHNARIB/wElAawBGAHvAS8BbwEpAbsBFAEVARQBGyAAAiEBdQHMAhAB0AH/AhAB0AH/AhAB0AH/AiEBdQHMAioBNQFIAioBNQFIAiEBdQHMAhAB0AH/AhAB0AH/AhAB0AH/
+        AiEBdQHMTAADDgESAUYCQQFiAVICSAGtAZUChQH/AfEC6wH/AfsC9gH/AfsC9gH/AfsC9gH/AfQC6QH/AewC2wH/AfYC8AH/AfYC7wH/Ad8C0wH/AaMCkwH/ATgCNgGVCAABKwE1ASoBSAEpAXgBIQHMAUUBwwE1
+        AfYBKAHDARcB/wE4AcwBJwH/AScBwgEWAf8BKQGfARwB6gEzAWwBLQGuAQwBDQEMARAcAAIqATUBSAIhAXgBzAIQAcQB/wIQAcQB/wIQAcQB/wIhAXgBzAIhAXgBzAIQAcQB/wIQAcQB/wIQAcQB/wIhAXgBzAIq
+        ATUBSEgAAzUBWQM/AXcDPwF3Az8BdwGVAooB/wHOAsUC/wL+Av8C/gL/Av4B/wHzAuYB/wHZAsgB/QGaAooB/wGQAoEB/wFcAbABUQH/AW0CagH/AzQBkwQAASsBNgEqAUgBKgF8ASEBzAFfAdQBTwH5ATIBvAEh
+        Af8BUQHKAUEB+AEqAXwBIQHMAS8BqwEhAfMBKwG4ARoB/wErAZUBHwHkATYBZwExAZ4DBgEIHAACKgE2AUgCIQF8AcwCEAG4Af8CEAG4Af8CEAG4Af8CEAG4Af8CEAG4Af8CEAG4Af8CIQF8AcwCKgE2AUhMAAM/
+        AXQDzQH/A84B/wPTAf8B0QLOAf8BvAKtAf8B3ALTAf8B9wL0Af8B8QLpAf8B0wLCAf8BlQKFAf8BVwJUAf8DVAH/A1QB/wNUAf8DLwGoBAABKwF/ASEBzAFsAeABWwH6AVgB0AFHAf8BaAHdAVcB/AErAX8BIQHM
+        ATYBTgEzAW0BLQGBASQBywE3AbABJgH4ATEBsgEgAf8BLgGQASEB3wE4AWABMwGMAwEBAhwAAioBNgFIAiEBfwHMAhQBrwH/AhABrAH/AhABrAH/AhABrAH/AiEBfwHMAioBNgFIUAADQAFyA88B/wHDAY4BSAH/
+        AdUBmQFHAf8B3wGjAVAB/wHhAaYBWAH/AdEBmgFcAf8ByQGUAV4B/wHFAZUBZwH/AboCrgH/AZgClQH/A8gB/wO9Af8D0QH/A8gB/wM+AXoEAAEsATYBKgFIASwBggEhAcwBcgHoAWEB/QEsAYIBIQHMASwBNgEq
+        AUgEAAEtATkBLAFMAS4BiQEjAdMBPQGzAS0B+wE3Aa4BJgH+ATEBjwEkAdoBOAFXATQBexwAAioBNgFIAiEBggHMAiQBtAH/AhABogH/AhABogH/AhMBpQH/AiEBggHMAioBNgFIUAADQAFwA9QB/wG3AXoBLQH/
+        Ac0BkQFAAf8B0gGWAUMB/wHZAZ0BSQH/AeABpAFOAf8B5wGrAVMB/wHqAa4BWwH/A9QB/wOiAf8DzQH/A8IB/wOZAf8DzQH/Az8BdQgAASwBNwEqAUgBLAGFASEBzAEsATcBKgFIDAABNgFNATIBaQE0AZUBKAHY
+        AVcBzgFGAf4BVAHLAUQB/QEzAZIBJwHWATQBSQEyAWMUAAIqATcBSAIhAYUBzAJSAdsB/wItAbcB/wI8AcYB/wIwAboB/wIUAZ8B/wIdAagB/wIhAYUBzAIqATcBSEwAA0ABbQPZAf8BsgF1ASkB/wHOAZIBRQH/
+        AcoBjgFBAf8BxgGKATwB/wHFAYkBOgH/AcYBigE7Af8B0wGXAUgB/wPZAf8DpwH/A9cB/wPSAf8D0gH/A9cB/wNAAXIjAAEBATkBYAE0AYUBPQGjAS8B3gFgAdgBTwH/AVsB0AFMAfoBMgGQASYB0gEuAToBLAFM
+        DAACKgE3AUgCIQGIAcwCZgHvAf8CNQG+Af8CXQHmAf8CIQGIAcwCIQGIAcwCTgHXAf8CNQG+Af8CRAHNAf8CIQGIAcwCKgE3AUhIAANAAWsD3gH/AbYBeQEtAf8B4QGlAVgB/wHhAaUBWAH/AeEBpQFYAf8B4QGl
+        AVgB/wHhAaUBWAH/AdcBmwFOAf8D3gH/A6wB/wO6Af8DvQH/A70B/wO6Af8DQAFvJAADBAEGATgBcAExAZ4BSQGzATsB5QFqAeIBWQH/AW4B5AFfAfsBLgGJASEBzAwAAiEBiQHMAnUB/gH/AksB1AH/AnEB+gH/
+        AiEBiQHMAioBNwFIAioBNwFIAiEBiQHMAmEB6gH/AksB1AH/AlsB5AH/AiEBiQHMSAADQAFqA+IB/wGsAXcBNAH/AbsBfgEyAf8BvgGCATUB/wHBAYUBOAH/AcYBigE9Af8BzAGQAUMB/wHKAZYBUgH/A+IB/wOw
+        Af8D4gH/A90B/wPdAf8D4gH/A0ABbSgAAQwBDQEMARABNgF8ASwBsAF2Ae4BZQH/AS4BjQEhAcwBLAE3ASoBSAwAAioBNwFIAiEBjQHMAnYC/wIhAY0BzAIqATcBSAgAAioBNwFIAiEBjQHMAm8B+AH/AiEBjQHM
+        AioBNwFISAADQAFoA+oB/wPlAf8D5QH/A+UB/wPlAf8D5QH/A+UB/wPlAf8D6gH/A7UB/wPCAf8DxwH/A8cB/wPCAf8DQAFqLAABFgEZARYBHwEvAY4BIQHMASwBOAEqAUgUAAIqATgBSAIhAY4BzAIqATgBSBAA
+        AioBOAFIAiEBjgHMAioBOAFITAADNAFNA0ABZwNAAWcDQAFnA0ABZwNAAWcDQAFnA0ABZwNAAWcDQAFnA0ABaAPqAf8D5QH/A+UB/wPqAf8DQAFo6AADNAFNA0ABZwNAAWcDQAFnA0ABZwM0AU3/AP8A/wD/AP8A
+        /wDGAAFCAU0BPgcAAT4DAAEoAwABQAMAARwDAAEBAQABAQUAAeAXAAP/AQAG/wIABv8CAAb/AgAG/wIABv8CAAb/AwABAQT/BAABgAEBAYABAQQAAYABAQGAAQEEAAHwAX8BwQGDBAAB4AE/AcABAwIAAYABAAHA
+        AR8BwAEDBAABgAEPAeABBwQAAYABBwHwAQ8EAAGCAQcB8AEPBAABxwEDAeABBwQAAf8BAQHAAQMEAAH/AYEBwAEDBAAB/wLBAYMEAAH/AuMBxwQABP8CAAH/AcAE/wIABv8CAAb/AgAG/wIABv8CAAb/AgAG/wIA
+        Cw=='))
+    $imgResult.ImageStream              = $imgResult_BinaryFomatter.Deserialize($imgResult_MemoryStream)
+    $imgResult_BinaryFomatter           = $null
+    $imgResult_MemoryStream             = $null
+    #
+
+    # Define ListView Control
+    $lstList                      = New-Object 'System.Windows.Forms.ListView'
+    # Add OwnerDraw Code
+    $lstList.OwnerDraw            = $True
+    $lstList.Add_DrawSubItem($SubIcons_DrawSubItem)
+    $lstList.Add_DrawColumnHeader($SubIcons_DrawColumnHeader)
+    # Set ListView properties
+    $lstList.Location             = ' 12,  12'
+    $lstList.Size                 = '630, 208'
+    $lstList.LabelEdit            = $True
+    $lstList.FullRowSelect        = $True
+    $lstList.GridLines            = $True
+    $lstList.HideSelection        = $True
+    $lstList.HeaderStyle          = 'Nonclickable'
+    $lstList.SmallImageList       = $imgResult
+    $lstList.Sorting              = 'Ascending'
+    $lstList.View                 = 'Details'
+    # Add first two columns
+    $lstList_CH_1                 = New-Object 'System.Windows.Forms.ColumnHeader'
+    $lstList_CH_2                 = New-Object 'System.Windows.Forms.ColumnHeader'
+    $lstList_CH_1.Text            = 'Virtual Machine Name'
+    $lstList_CH_2.Text            = 'Status'
+    $lstList_CH_1.Width           = 275
+    $lstList_CH_2.Width           = 100
+    $lstList_CH_2.TextAlign       = 'Center'
+    $lstList.Columns.Add($lstList_CH_1) | Out-Null
+    $lstList.Columns.Add($lstList_CH_2) | Out-Null
+    # Add 'results' columns
+    For ($i=0; $i -le 6; $i++)
+    {
+        $newCH           = New-Object 'System.Windows.Forms.ColumnHeader'
+        $newCH.Text      = 'RESULTS'.Substring($i, 1)
+        $newCH.Width     = 32
+        $newCH.TextAlign = 'Center'
+        $lstList.Columns.Add($newCH) | Out-Null
+    }
+    # Add control to the main form
+    $MainFORM.Controls.Add($lstList)
+
+    #
+    $btn_Close                          = New-Object 'System.Windows.Forms.Button'
+    $btn_Close.Location                 = '557, 235'
+    $btn_Close.Size                     = ' 75,  25'
+    $btn_Close.Text                     = 'Close'
+    $btn_Close.DialogResult             = [System.Windows.Forms.DialogResult]::Cancel    # Use this instead of a 'Click' event
+    $MainFORM.CancelButton              = $btn_Close
+    $MainFORM.Controls.Add($btn_Close)
+    #
+#endregion
+###################################################################################################
+    $InitialFormWindowState = $MainFORM.WindowState
+    $MainFORM.Add_Load($MainFORM_StateCorrection_Load)
+    $MainFORM.ShowDialog() | Out-Null
+}
+
+Display-MainForm | Out-Null
