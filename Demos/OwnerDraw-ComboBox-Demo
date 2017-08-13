@@ -1,4 +1,4 @@
-﻿#Requires         -Version 4
+#Requires         -Version 4
 Set-StrictMode    -Version 2
 Remove-Variable * -ErrorAction SilentlyContinue
 Clear-Host
@@ -19,7 +19,6 @@ $btn_Refresh_Click = {
     $script:ComboIcons_SelectedItem = 0
     $cmoComboBox.Items.Clear()
 
-    [string[]]$colors = @('Black', 'Blue', 'Cyan', 'Green', 'Grey', 'Orange', 'Pink', 'Red', 'White', 'Yellow')
     0..9 | ForEach-Object -Process {
         $tmp = New-IconComboItem
         $tmp.Name = "Item$_"
@@ -33,7 +32,7 @@ $btn_Refresh_Click = {
         Else
         {
             $tmp.Icon = $_
-            $tmp.Text = $colors[$_]
+            $tmp.Text = "Flag $_"
             If ($_ -gt 0) { $tmp.Indent = (Get-Random -Maximum 2 -Minimum 0) }
         }
 
@@ -79,9 +78,10 @@ $ComboIcons_OnDrawItem = {
         If ($currItem.Enabled -eq $False) {
             $icon = (GreyScaleImage -Image $icon)
             $solidBrush.Color = [System.Drawing.SystemColors]::GrayText
-         }
+        }
 
-        $iconRect = New-Object 'System.Drawing.RectangleF'((($bounds.Left) + 5 + $indent), (($bounds.Top) + 2), 16, 16)
+        $middle   = (($bounds.Top) + ((($bounds.Height) - ($icon.Height)) / 2))
+        $iconRect = New-Object 'System.Drawing.RectangleF'((($bounds.Left) + 5 + $indent), $middle, $icon.Width, $icon.Width)
         $textRect = New-Object 'System.Drawing.RectangleF'((($bounds.Left) + ($iconRect.Width) + 9 + $indent), $bounds.Top, (($bounds.Width) - ($iconRect.Width) - 9 - $indent), $bounds.Height)
         $format   = New-Object 'System.Drawing.StringFormat'
         $format.Alignment     = [System.Drawing.StringAlignment]::Near
@@ -259,14 +259,15 @@ $lbl_Description.Text          = 'Click the REFRESH button to load some example 
 $MainFORM.Controls.Add($lbl_Description)
 
 $cmoComboBox                   = New-Object 'System.Windows.Forms.ComboBox'
-$cmoComboBox.ItemHeight        = '22'
+$cmoComboBox.ItemHeight        = '20'
 $cmoComboBox.DrawMode          = 'OwnerDrawFixed'
 $cmoComboBox.Add_DrawItem($ComboIcons_OnDrawItem)
 $cmoComboBox.Add_SelectedIndexChanged($ComboIcons_SelectedIndexChanged)
 $cmoComboBox.Location          = ' 12,  65'
-$cmoComboBox.Size              = '370,  35'
+$cmoComboBox.Size              = '370,  20'
 $cmoComboBox.Font              = $sysFont
 $cmoComboBox.DropDownStyle     = 'DropDownList'
+$cmoComboBox.DropDownHeight    = (($cmoComboBox.ItemHeight * 10) + 2)
 $MainFORM.Controls.Add($cmoComboBox)
 
 $chkShowDisabled                = New-Object 'System.Windows.Forms.CheckBox'
