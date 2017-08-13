@@ -1,0 +1,298 @@
+﻿#Requires         -Version 4
+Set-StrictMode    -Version 2
+Remove-Variable * -ErrorAction SilentlyContinue
+Clear-Host
+
+[Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms') | Out-Null
+[Reflection.Assembly]::LoadWithPartialName('System.Data')          | Out-Null
+[Reflection.Assembly]::LoadWithPartialName('System.Drawing')       | Out-Null
+[System.Drawing.Font]$sysFont       = [System.Drawing.SystemFonts]::MessageBoxFont
+[System.Windows.Forms.Application]::EnableVisualStyles()
+
+[int]$script:ComboIcons_SelectedItem = 0               # Keeps track of the currently selected item
+[System.Collections.ArrayList]$IconComboItems = @{}    # Holds all the custom items for the ComboxBox
+Function New-IconComboItem { Return ( New-Object -TypeName PSObject -Property @{'Icon' = ''; 'Name' = ''; 'Text' = ''; 'Indent' = '0'; 'Enabled' = $True; } ) }
+
+######### TESTING ##########
+$btn_Refresh_Click = {
+    $IconComboItems.Clear()
+    $script:ComboIcons_SelectedItem = 0
+    $cmoComboBox.Items.Clear()
+
+    [string[]]$colors = @('Black', 'Blue', 'Cyan', 'Green', 'Grey', 'Orange', 'Pink', 'Red', 'White', 'Yellow')
+    0..9 | ForEach-Object -Process {
+        $tmp = New-IconComboItem
+        $tmp.Name = "Item$_"
+
+        If ($chkShowDisabled.Checked -eq $True)
+        {
+            $tmp.Icon = 3    # Green
+            $tmp.Text = "Item $_"
+            If ($_ -gt 0) { $tmp.Enabled = (Get-Random -InputObject ($True, $True, $False)) }
+        }
+        Else
+        {
+            $tmp.Icon = $_
+            $tmp.Text = $colors[$_]
+            If ($_ -gt 0) { $tmp.Indent = (Get-Random -Maximum 2 -Minimum 0) }
+        }
+
+        [void]$IconComboItems.Add($tmp)
+        $tmp = $null
+    }
+
+    [void]$cmoComboBox.Items.AddRange($IconComboItems)
+    $cmoComboBox.SelectedIndex = 0
+}
+######### TESTING ##########
+
+# Used to "disable" an image (turn it into a greyscale image of itself)
+Function GreyScaleImage ([System.Drawing.Image]$Image)
+{
+    If ([string]::IsNullOrEmpty($Image) -eq $True) { Return $Image }
+    [System.Drawing.Image]                  $newImage  = New-Object 'System.Drawing.Bitmap'($Image.Width, $Image.Height)
+    [System.Drawing.Graphics]               $graphics  = [System.Drawing.Graphics]::FromImage($newImage)
+    [System.Drawing.Imaging.ColorMatrix]    $matrix    = New-Object 'System.Drawing.Imaging.ColorMatrix'
+    [System.Drawing.Imaging.ImageAttributes]$imgAttrib = New-Object 'System.Drawing.Imaging.ImageAttributes'
+    $matrix.Matrix00 = '0.0'; $matrix.Matrix10 = '1.0'; $matrix.Matrix11 = '1.0'; $matrix.Matrix12 = '1.0'; $matrix.Matrix22 = '0.0'; $matrix.Matrix33 = '0.5'
+    $imgAttrib.SetColorMatrix($matrix, [System.Drawing.Imaging.ColorMatrixFlag]::Default, [System.Drawing.Imaging.ColorAdjustType]::Bitmap)
+    $graphics.DrawImage($Image, (New-Object 'System.Drawing.Rectangle'(0, 0, $Image.Width, $Image.Height)), 0, 0, $newImage.Width, $newImage.Height, [System.Drawing.GraphicsUnit]::Pixel, $imgAttrib)
+    $graphics.Dispose()
+    Return $newImage
+}
+
+# Custom draws each cmoComboBox item
+$ComboIcons_OnDrawItem = {
+    [System.Windows.Forms.DrawItemEventArgs]$e = $_
+    $e.DrawBackground()
+    $e.DrawFocusRectangle()
+
+    [System.Drawing.Rectangle]$bounds = $e.Bounds    
+    If (($e.Index -gt -1) -and ($e.Index -lt $IconComboItems.Count))
+    {
+        $currItem = $IconComboItems[$e.Index]
+
+        [int]                      $indent     = ($currItem.Indent * 14) 
+        [System.Drawing.Image]     $icon       = $imgResult.Images[$currItem.Icon]
+        [System.Drawing.SolidBrush]$solidBrush = [System.Drawing.SolidBrush]$e.ForeColor
+
+        If ($currItem.Enabled -eq $False) {
+            $icon = (GreyScaleImage -Image $icon)
+            $solidBrush.Color = [System.Drawing.SystemColors]::GrayText
+         }
+
+        $iconRect = New-Object 'System.Drawing.RectangleF'((($bounds.Left) + 5 + $indent), (($bounds.Top) + 2), 16, 16)
+        $textRect = New-Object 'System.Drawing.RectangleF'((($bounds.Left) + ($iconRect.Width) + 9 + $indent), $bounds.Top, (($bounds.Width) - ($iconRect.Width) - 9 - $indent), $bounds.Height)
+        $format   = New-Object 'System.Drawing.StringFormat'
+        $format.Alignment     = [System.Drawing.StringAlignment]::Near
+        $format.LineAlignment = [System.Drawing.StringAlignment]::Center
+
+        If ($icon -ne $null) { $e.Graphics.DrawImage($icon, $iconRect) }
+        $e.Graphics.DrawString($currItem.Text, $e.Font, $solidBrush, $textRect, $format)
+    }
+}
+
+# Get the currently selected item (but only if not disabled)
+$ComboIcons_SelectedIndexChanged = {
+    If ($cmoComboBox.SelectedIndex -lt 0) { Return }
+    If ($cmoComboBox.SelectedIndex -lt $IconComboItems.Count)
+    {
+        If ($IconComboItems[$cmoComboBox.SelectedIndex].Enabled -eq $false) { $cmoComboBox.SelectedIndex = $script:ComboIcons_SelectedItem }
+        Else                                                             { $script:ComboIcons_SelectedItem = $cmoComboBox.SelectedIndex }
+    }
+    $lbl_Description.Text = $($IconComboItems[$script:ComboIcons_SelectedItem])
+}
+
+
+$MainFORM = New-Object 'System.Windows.Forms.Form'
+$MainFORM.FormBorderStyle      = 'FixedDialog'
+$MainFORM.MaximizeBox          = $False
+$MainFORM.MinimizeBox          = $False
+$MainFORM.ControlBox           = $True
+$MainFORM.Text                 = ' OwnerDraw cmoComboBox Control '
+$MainFORM.ShowInTaskbar        = $True
+$MainFORM.AutoScaleDimensions  = '6, 13'
+$MainFORM.AutoScaleMode        = 'None'
+$MainFORM.ClientSize           = '394, 147'
+$MainFORM.StartPosition        = 'CenterParent'
+
+$imgResult                      = New-Object 'System.Windows.Forms.ImageList'
+$imgResult.TransparentColor     = 'Transparent'
+$imgResult_BinaryFomatter       = New-Object 'System.Runtime.Serialization.Formatters.Binary.BinaryFormatter'
+$imgResult_MemoryStream         = New-Object 'System.IO.MemoryStream' (,[byte[]][System.Convert]::FromBase64String('
+        AAEAAAD/////AQAAAAAAAAAMAgAAAFdTeXN0ZW0uV2luZG93cy5Gb3JtcywgVmVyc2lvbj0yLjAuMC4wLCBDdWx0dXJlPW5ldXRyYWwsIFB1YmxpY0tleVRva2VuPWI3N2E1YzU2MTkzNGUwODkFAQAAACZTeXN0
+        ZW0uV2luZG93cy5Gb3Jtcy5JbWFnZUxpc3RTdHJlYW1lcgEAAAAERGF0YQcCAgAAAAkDAAAADwMAAACAOgAAAk1TRnQBSQFMAgEBCgEAARgBAAEIAQABEAEAARABAAT/ASEBAAj/AUIBTQE2BwABNgMAASgDAAFA
+        AwABMAMAAQEBAAEgBgABMBIAAzcBWANJAaADSQGgA0kBoANJAaADSQGgA0kBoANJAaADSQGgA0kBoANJAaADSQGgA0gBmgwAATEBNwE6AVgBNgFLAVUBoAE2AUsBVQGgATYBSwFVAaABNgFLAVUBoAE2AUsBVQGg
+        ATYBSwFVAaABNgFLAVUBoAE2AUsBVQGgATYBSwFVAaABNgFLAVUBoAE2AUsBVQGgATcBSgFTAZqMAANJAaAD4AH/A+AB/wPgAf8D4AH/A+AB/wPgAf8DgAH/A7UB/wPTAfMDygHuA9QB8gPgAfkDSQGgCAABNgFL
+        AVUBoAF+AdMB9wH/AX4B0wH3Af8BfgHTAfcB/wF+AdMB9wH/AX4B0wH3Af8BfgHTAfcB/wE+AXwBlwH/AWIBrQHLAf8BfAHGAecB8wF3AcAB3gHuAX0ByQHoAfIBggHUAfYB+QE2AUsBVQGgiAADSQGgA+EB/wPh
+        Af8D4QH/A+EB/wPkAf8D4QH/A4AB/wO3Af8D6AH/A+YB/gPoAf8D5wH+A+AB/ANJAaAEAAE2AUsBVQGgAYAB1AH5Af8BgAHXAfkB/wGAAdcB+QH/AYAB1wH5Af8BgwHUAfkB/wGAAdUB+AH/AT4BfAGXAf8BYwGu
+        Ac4B/wGFAdsC/wGEAdkB/QH+AYYB3AL/AYUB2gL+AYEB0wH2AfwBNgFLAVUBoIQAA0kBoAPnAf8D5wH/A+cB/wPnAf8D5wH/A+cB/wOAAf8DuAH/A+oB/wPqAf8D6gH/A+gB/wPkAf0DSQGgBAABNgFLAVUBoAGF
+        AdgB/QH/AYUB2QH9Af8BhQHZAf0B/wGDAdkC/wGFAdkB/QH/AYUB2QH9Af8BPgF8AZcB/wFkAbAB0AH/AYgB4AL/AYgB3QL/AYcB3QL/AYYB2wL/AYMB1QH8Af0BNgFLAVUBoIQAA0kBoAPoAf8D6AH/A+gB/wPo
+        Af8D6AH/A+gB/wOAAf8DuwH/A+sB/wPqAf8D6gH/A+gB/wPmAf4DSQGgBAABNgFLAVUBoAGGAd0C/wGGAd0C/wGGAd0C/wGGAd0C/wGGAd0C/wGGAd0C/wE+AXwBlwH/AWYBsgHRAf8BigHiAv8BiQHgAv8BiAHe
+        Av8BhgHbAv8BhAHYAf0B/gE2AUsBVQGghAADSQGgA+sB/wPrAf8D6wH/A+sB/wPsAf8D7AH/A4AB/wO9Af8D7QH/A+sB/wPqAf8D6AH/A+gB/wNJAaAEAAE2AUsBVQGgAYoB4wL/AYoB4wL/AYoB4wL/AYoB4wL/
+        AYwB4wL/AYwB4wL/AT4BfAGXAf8BaAG0AdMB/wGNAeUC/wGKAeIC/wGIAd4C/wGGAdwC/wGGAdsC/wE2AUsBVQGghAADSQGgA+4B/wPuAf8D7gH/A+4B/wPuAf8D7gH/A4AB/wO+Af8D7gH/A+0B/wPqAf8D6gH/
+        A+oB/wNJAaAEAAE2AUsBVQGgAY8B5wL/AY8B5wL/AY8B5wL/AZAB5wL/AY8B5wL/AZAB5wL/AT4BfAGXAf8BaQG2AdUB/wGQAeoC/wGNAeUC/wGIAeAC/wGHAd0C/wGHAd0C/wE2AUsBVQGghAADSAGbA/EB/wPx
+        Af8D8QH/A/EB/wPxAf8D8QH/A4AB/wOvAf8D8AH/A+4B/wPtAf8D6gH/A1kBvANCAXsEAAE3AUsBUwGbAZMB7gL/AZMB7gL/AZMB7gL/AZMB7gL/AZMB7gL/AZMB7QL/AT4BfAGXAf8BXgGoAcYB/wGSAe0C/wGQ
+        AeoC/wGNAeUC/wGIAd4C/wE6AVsBaQG8ATcBRAFJAXuEAANHAZYD8wH/A/MB/wPyAf8D8wH/A/IB/wPyAf8D8wH/A4UB/wOvAf8D8AH/A+4B/wNXAacDQQF2CAABNwFJAVIBlgGXAfQC/wGXAfQC/wGWAfQC/wGX
+        AfQC/wGWAfQC/wGWAfEC/wGXAfQC/wFCAYEBmwH/AV4BqAHGAf8BkgHtAv8BkAHqAv8BPQFYAWMBpwE2AUIBRwF2iAADRgGPA/YB/wP2Af8D9gH/A/YB/wP2Af8D9AH/A/YB/wP0Af8DkgH/A/EB/wPwAf8DRgGP
+        DAABNwFJAVABjwGbAfgC/wGbAfgC/wGbAfgC/wGbAfgC/wGbAfgC/wGZAfgC/wGbAfgC/wGaAfcC/wFLAY4BqQH/AZQB8AL/AZIB7QL/ATcBSQFQAY+MAANFAYcD9gH/A/gB/wP4Af8D+AH/A/gB/wP2Af8D+AH/
+        A/YB/wOfAf8D8wH/A/EB/wNFAYcMAAE3AUcBTQGHAZwB/QL/AZ8B/QL/AZ8B/QL/AZ8B/QL/AZ8B/QL/AZwB/QL/AZ8B/QL/AZwB/AL/AVQBmgG2Af8BlwHzAv8BlAHwAv8BNwFHAU0Bh4wAA0MBfgP5Af8D+QH/
+        A/kB/wP5Af8D+QH/A/kB/wP5Af8D+QH/A64B/wPzAf8D8wH/A0MBfgwAATcBRQFKAX4BoQP/AaED/wGhA/8BogP/AaED/wGiA/8BogP/AaED/wFdAaYBxAH/AZgB9QL/AZcB8wL/ATcBRQFKAX6MAANAAXQD+gH/
+        A/oB/wP6Af8D+gH/A/oB/wP6Af8D+gH/A/oB/wO8Af8D8wH/A/MB/wNAAXQMAAE2AUIBRgF0AaMD/wGjA/8BowP/AaMD/wGjA/8BowP/AaMD/wGjA/8BZwG0AdIB/wGYAfUC/wGYAfUC/wE2AUIBRgF0jAADPQFp
+        A/oB/wP6Af8D+gH/A/oB/wP6Af8D+gH/A/oB/wP6Af8DygH/A/MB/wPzAf8DPQFpDAABNQE+AUIBaQGkA/8BpAP/AaQD/wGkA/8BpAP/AaQD/wGkA/8BpAP/AXABwAHhAf8BmAH1Av8BmAH1Av8BNQE+AUIBaYwA
+        AzkBXwP6Af8D+gH/A/oB/wP6Af8D+gH/A/oB/wP6Af8D+gH/A9gB/wPzAf8D8wH/AzkBXwwAATMBOgE9AV8BpAP/AaQD/wGkA/8BpAP/AaQD/wGkA/8BpAP/AaQD/wF5AcsB7gH/AZgB9QL/AZgB9QL/ATMBOgE9
+        AV+MAAMfASsDNAFTAzQBUgM0AVIDNAFSAzQBUgM0AVIDNAFTAzQBUgM0AVIDNAFSAzQBUgMfASsMAAEdAR8BIAErAS8BNQE3AVMBLwE1ATcBUgEvATUBNwFSAS8BNQE3AVIBLwE1ATcBUgEvATUBNwFSAS8BNQE3
+        AVMBLwE1ATcBUgEvATUBNwFSAS8BNQE3AVIBLwE1ATcBUgEdAR8BIAErjAADNQFYA0QBoANEAaADRAGgA0QBoANEAaADRAGgA0QBoANEAaADRAGgA0QBoANEAaADQwGaDAABLwE1ATsBWAExAUQBWQGgATEBRAFZ
+        AaABMQFEAVkBoAExAUQBWQGgATEBRAFZAaABMQFEAVkBoAExAUQBWQGgATEBRAFZAaABMQFEAVkBoAExAUQBWQGgATEBRAFZAaABMgFEAVcBmgwAATcBMgE4AVgBSwE4AU8BoAFLATgBTwGgAUsBOAFPAaABSwE4
+        AU8BoAFLATgBTwGgAUsBOAFPAaABSwE4AU8BoAFLATgBTwGgAUsBOAFPAaABSwE4AU8BoAFLATgBTwGgAUoBOQFOAZoMAAIyATgBWAI4AU8BoAI4AU8BoAI4AU8BoAI4AU8BoAI4AU8BoAI4AU8BoAI4AU8BoAI4
+        AU8BoAI4AU8BoAI4AU8BoAI4AU8BoAI5AU4BmgwAA0QBoAOzAf8DswH/A7MB/wOzAf8DswH/A7MB/wNlAf8DkAH/A6oB8wOjAe4DrAHyA7QB+QNEAaAIAAExAUQBWQGgAXYBuwH+Af8BdgG7Af4B/wF2AbsB/gH/
+        AXYBuwH+Af8BdgG7Af4B/wF2AbsB/gH/AQABagHVAf8BLgGXAf4B/wFxAbEB8AHzAWkBqwHqAe4BdgGyAe8B8gGAAbsB9wH5ATEBRAFZAaAIAAFLATgBTwGgAdEBhQHgAf8B0QGFAeAB/wHRAYUB4AH/AdEBhQHg
+        Af8B0QGFAeAB/wHRAYUB4AH/AY4BJwGjAf8BvAFMAdIB/wHGAYAB1AHzAb8BeAHOAe4BxgGCAdQB8gHPAYwB3AH5AUsBOAFPAaAIAAI4AU8BoAKFAeAB/wKFAeAB/wKFAeAB/wKFAeAB/wKFAeAB/wKFAeAB/wIn
+        AaMB/wJMAdIB/wKAAdQB8wJ4Ac4B7gKCAdQB8gKMAdwB+QI4AU8BoAgAA0QBoAO0Af8DtAH/A7QB/wO0Af8DtgH/A7QB/wNlAf8DkgH/A7kB/wO3Af4DuQH/A7gB/gO0AfwDRAGgBAABMQFEAVkBoAF5AbwB/gH/
+        AXkBvAH+Af8BeQG8Af4B/wF5AbwB/gH/AXwBvgH+Af8BeAG8Af4B/wEAAWoB1QH/ATIBmQH+Af8BhQHCAf4B/wGDAcAB/QH+AYYBwgH+Af8BhQHBAf0B/gF9AbwB+gH8ATEBRAFZAaAEAAFLATgBTwGgAdEBhwHh
+        Af8B0QGHAeEB/wHRAYcB4QH/AdEBhwHhAf8B0wGKAeEB/wHRAYcB4QH/AY4BJwGjAf8BvQFPAdMB/wHUAY8B4wH/AdMBjAHhAf4B1AGPAeMB/wHTAY4B4gH+AdABiAHdAfwBSwE4AU8BoAQAAjgBTwGgAocB4QH/
+        AocB4QH/AocB4QH/AocB4QH/AooB4QH/AocB4QH/AicBowH/Ak8B0wH/Ao8B4wH/AowB4QH+Ao8B4wH/Ao4B4gH+AogB3QH8AjgBTwGgBAADRAGgA7gB/wO4Af8DuAH/A7gB/wO4Af8DuAH/A2UB/wOTAf8DuwH/
+        A7sB/wO7Af8DuQH/A7cB/QNEAaAEAAExAUQBWQGgAYMBwQH+Af8BgwHBAf4B/wGDAcEB/gH/AYMBwQH+Af8BgwHBAf4B/wGDAcEB/gH/AQABagHVAf8BNQGaAf4B/wGIAcMB/gH/AYgBwwH+Af8BhwHDAf4B/wGG
+        AcIB/gH/AYIBvgH8Af0BMQFEAVkBoAQAAUsBOAFPAaAB1AGNAeIB/wHUAY0B4gH/AdQBjQHiAf8B1AGNAeIB/wHUAY0B4gH/AdQBjQHiAf8BjgEnAaMB/wG+AVEB0wH/AdYBkgHjAf8B1gGSAeMB/wHWAZIB4wH/
+        AdQBjwHjAf8B0gGNAeAB/QFLATgBTwGgBAACOAFPAaACjQHiAf8CjQHiAf8CjQHiAf8CjQHiAf8CjQHiAf8CjQHiAf8CJwGjAf8CUQHTAf8CkgHjAf8CkgHjAf8CkgHjAf8CjwHjAf8CjQHgAf0COAFPAaAEAANE
+        AaADuQH/A7kB/wO5Af8DuQH/A7kB/wO5Af8DZQH/A5UB/wO8Af8DuwH/A7sB/wO5Af8DtwH+A0QBoAQAATEBRAFZAaABhgHCAf4B/wGGAcIB/gH/AYYBwgH+Af8BhgHCAf4B/wGGAcIB/gH/AYYBwgH+Af8BAAFq
+        AdUB/wE4AZwB/gH/AYoBxAH+Af8BiQHDAf4B/wGIAcMB/gH/AYYBwgH+Af8BgwHAAf0B/gExAUQBWQGgBAABSwE4AU8BoAHUAY8B4wH/AdQBjwHjAf8B1AGPAeMB/wHUAY8B4wH/AdQBjwHjAf8B1AGPAeMB/wGO
+        AScBowH/Ab8BVAHUAf8B1gGTAeQB/wHWAZIB4wH/AdYBkgHjAf8B1AGPAeMB/wHTAYwB4QH+AUsBOAFPAaAEAAI4AU8BoAKPAeMB/wKPAeMB/wKPAeMB/wKPAeMB/wKPAeMB/wKPAeMB/wInAaMB/wJUAdQB/wKT
+        AeQB/wKSAeMB/wKSAeMB/wKPAeMB/wKMAeEB/gI4AU8BoAQAA0QBoAO8Af8DvAH/A7wB/wO8Af8DvAH/A7wB/wNlAf8DlwH/A70B/wO8Af8DuwH/A7kB/wO5Af8DRAGgBAABMQFEAVkBoAGKAcQB/gH/AYoBxAH+
+        Af8BigHEAf4B/wGKAcQB/gH/AYwBxQH+Af8BjAHFAf4B/wEAAWoB1QH/ATwBngH+Af8BjQHGAf4B/wGKAcQB/gH/AYgBwwH+Af8BhgHCAf4B/wGGAcIB/gH/ATEBRAFZAaAEAAFLATgBTwGgAdYBkwHkAf8B1gGT
+        AeQB/wHWAZMB5AH/AdYBkwHkAf8B1gGTAeQB/wHWAZMB5AH/AY4BJwGjAf8BwAFXAdUB/wHXAZUB5AH/AdYBkwHkAf8B1gGSAeMB/wHUAY8B4wH/AdQBjwHjAf8BSwE4AU8BoAQAAjgBTwGgApMB5AH/ApMB5AH/
+        ApMB5AH/ApMB5AH/ApMB5AH/ApMB5AH/AicBowH/AlcB1QH/ApUB5AH/ApMB5AH/ApIB4wH/Ao8B4wH/Ao8B4wH/AjgBTwGgBAADRAGgA74B/wO+Af8DvgH/A74B/wO+Af8DvgH/A2UB/wOYAf8DvgH/A70B/wO7
+        Af8DuwH/A7sB/wNEAaAEAAExAUQBWQGgAY8BxwH+Af8BjwHHAf4B/wGPAccB/gH/AZABxwH+Af8BjwHHAf4B/wGQAccB/gH/AQABagHVAf8BPwGfAf4B/wGQAccB/gH/AY0BxgH+Af8BiAHDAf4B/wGHAcMB/gH/
+        AYcBwwH+Af8BMQFEAVkBoAQAAUsBOAFPAaAB2AGWAeUB/wHYAZYB5QH/AdgBlgHlAf8B2AGWAeUB/wHYAZYB5QH/AdgBlgHlAf8BjgEnAaMB/wHBAVkB1QH/AdgBlgHlAf8B1wGVAeQB/wHWAZIB4wH/AdYBkgHj
+        Af8B1gGSAeMB/wFLATgBTwGgBAACOAFPAaAClgHlAf8ClgHlAf8ClgHlAf8ClgHlAf8ClgHlAf8ClgHlAf8CJwGjAf8CWQHVAf8ClgHlAf8ClQHkAf8CkgHjAf8CkgHjAf8CkgHjAf8COAFPAaAEAANDAZsDwAH/
+        A8AB/wPAAf8DwAH/A8AB/wPAAf8DZQH/A4wB/wPAAf8DvgH/A70B/wO7Af8DTwG8Az8BewQAATIBRAFXAZsBkwHJAf4B/wGTAckB/gH/AZMByQH+Af8BkwHJAf4B/wGTAckB/gH/AZMByQH+Af8BAAFqAdUB/wEl
+        AZIB/gH/AZIByAH+Af8BkAHHAf4B/wGNAcYB/gH/AYgBwwH+Af8BKAFRAXsBvAE0AUABTAF7BAABSwE5AU4BmwHZAZoB5QH/AdkBmgHlAf8B2QGaAeUB/wHZAZoB5QH/AdkBmgHlAf8B2QGaAeUB/wGOAScBowH/
+        AbkBRgHRAf8B2QGaAeUB/wHYAZYB5QH/AdcBlQHkAf8B1gGSAeMB/wFfATcBZwG8AUQBOAFGAXsEAAI5AU4BmwKaAeUB/wKaAeUB/wKaAeUB/wKaAeUB/wKaAeUB/wKaAeUB/wInAaMB/wJGAdEB/wKaAeUB/wKW
+        AeUB/wKVAeQB/wKSAeMB/wI3AWcBvAI4AUYBewQAA0MBlgPCAf8DwgH/A8EB/wPCAf8DwQH/A8EB/wPCAf8DaQH/A4wB/wPAAf8DvgH/A04BpwM+AXYIAAEyAUMBVgGWAZcBywH+Af8BlwHLAf4B/wGWAcoB/gH/
+        AZcBywH+Af8BlgHKAf4B/wGWAcoB/gH/AZcBywH+Af8BAAFuAd0B/wElAZIB/gH/AZIByAH+Af8BkAHHAf4B/wEvAVABcQGnATQBPwFKAXYIAAFJATkBTQGWAdoBnQHmAf8B2gGdAeYB/wHZAZsB5gH/AdoBnQHm
+        Af8B2QGbAeYB/wHZAZsB5gH/AdoBnQHmAf8BlAEpAakB/wG5AUYB0QH/AdkBmgHlAf8B2AGWAeUB/wFaATsBYQGnAUIBOAFEAXYIAAI5AU0BlgKdAeYB/wKdAeYB/wKbAeYB/wKdAeYB/wKbAeYB/wKbAeYB/wKd
+        AeYB/wIpAakB/wJGAdEB/wKaAeUB/wKWAeUB/wI7AWEBpwI4AUQBdggAA0MBjwPEAf8DxAH/A8QB/wPEAf8DxAH/A8MB/wPEAf8DwwH/A3MB/wPAAf8DwAH/A0MBjwwAATMBQwFUAY8BmwHNAf4B/wGbAc0B/gH/
+        AZsBzQH+Af8BmwHNAf4B/wGbAc0B/gH/AZkBzAH+Af8BmwHNAf4B/wGaAcwB/gH/AQABeQH0Af8BlAHJAf4B/wGSAcgB/gH/ATMBQwFUAY8MAAFJAToBTAGPAdsBoAHnAf8B2wGgAecB/wHbAaAB5wH/AdsBoAHn
+        Af8B2wGgAecB/wHbAZ4B5wH/AdsBoAHnAf8B2wGeAecB/wGiAS0BuQH/AdkBmgHlAf8B2QGaAeUB/wFJAToBTAGPDAACOgFMAY8CoAHnAf8CoAHnAf8CoAHnAf8CoAHnAf8CoAHnAf8CngHnAf8CoAHnAf8CngHn
+        Af8CLQG5Af8CmgHlAf8CmgHlAf8COgFMAY8MAANBAYcDxAH/A8YB/wPGAf8DxgH/A8YB/wPEAf8DxgH/A8QB/wN+Af8DwgH/A8AB/wNBAYcMAAE0AUEBUAGHAZwBzQH+Af8BnwHPAf4B/wGfAc8B/gH/AZ8BzwH+
+        Af8BnwHPAf4B/wGcAc0B/gH/AZ8BzwH+Af8BnAHNAf4B/wELAYUB/gH/AZcBywH+Af8BlAHJAf4B/wE0AUEBUAGHDAABRwE5AUkBhwHbAaAB5wH/AdwBowHoAf8B3AGjAegB/wHcAaMB6AH/AdwBowHoAf8B2wGg
+        AecB/wHcAaMB6AH/AdsBoAHnAf8BsQExAcsB/wHaAZ0B5gH/AdkBmgHlAf8BRwE5AUkBhwwAAjkBSQGHAqAB5wH/AqMB6AH/AqMB6AH/AqMB6AH/AqMB6AH/AqAB5wH/AqMB6AH/AqAB5wH/AjEBywH/Ap0B5gH/
+        ApoB5QH/AjkBSQGHDAADQAF+A8cB/wPHAf8DxwH/A8cB/wPHAf8DxwH/A8cB/wPHAf8DiwH/A8IB/wPCAf8DQAF+DAABNAFBAU0BfgGhAdAB/gH/AaEB0AH+Af8BoQHQAf4B/wGiAdAB/gH/AaEB0AH+Af8BogHQ
+        Af4B/wGiAdAB/gH/AaEB0AH+Af8BIgGRAf4B/wGYAcsB/gH/AZcBywH+Af8BNAFBAU0BfgwAAUUBOQFHAX4B3QGlAegB/wHdAaUB6AH/Ad0BpQHoAf8B3QGlAegB/wHdAaUB6AH/Ad0BpQHoAf8B3QGlAegB/wHd
+        AaUB6AH/AbkBRAHQAf8B2gGdAeYB/wHaAZ0B5gH/AUUBOQFHAX4MAAI5AUcBfgKlAegB/wKlAegB/wKlAegB/wKlAegB/wKlAegB/wKlAegB/wKlAegB/wKlAegB/wJEAdAB/wKdAeYB/wKdAeYB/wI5AUcBfgwA
+        Az4BdAPIAf8DyAH/A8gB/wPIAf8DyAH/A8gB/wPIAf8DyAH/A5YB/wPCAf8DwgH/Az4BdAwAATQBPgFJAXQBowHRAf4B/wGjAdEB/gH/AaMB0QH+Af8BowHRAf4B/wGjAdEB/gH/AaMB0QH+Af8BowHRAf4B/wGj
+        AdEB/gH/AToBnQH+Af8BmAHLAf4B/wGYAcsB/gH/ATQBPgFJAXQMAAFCATgBRAF0Ad0BpwHpAf8B3QGnAekB/wHdAacB6QH/Ad0BpwHpAf8B3QGnAekB/wHdAacB6QH/Ad0BpwHpAf8B3QGnAekB/wG/AVYB1AH/
+        AdoBnQHmAf8B2gGdAeYB/wFCATgBRAF0DAACOAFEAXQCpwHpAf8CpwHpAf8CpwHpAf8CpwHpAf8CpwHpAf8CpwHpAf8CpwHpAf8CpwHpAf8CVgHUAf8CnQHmAf8CnQHmAf8COAFEAXQMAAM7AWkDyAH/A8gB/wPI
+        Af8DyAH/A8gB/wPIAf8DyAH/A8gB/wOhAf8DwgH/A8IB/wM7AWkMAAEyATsBRAFpAaQB0QH+Af8BpAHRAf4B/wGkAdEB/gH/AaQB0QH+Af8BpAHRAf4B/wGkAdEB/gH/AaQB0QH+Af8BpAHRAf4B/wFSAakB/gH/
+        AZgBywH+Af8BmAHLAf4B/wEyATsBRAFpDAABPgE2AT8BaQHdAacB6QH/Ad0BpwHpAf8B3QGnAekB/wHdAacB6QH/Ad0BpwHpAf8B3QGnAekB/wHdAacB6QH/Ad0BpwHpAf8BxgFnAdkB/wHaAZ0B5gH/AdoBnQHm
+        Af8BPgE2AT8BaQwAAjYBPwFpAqcB6QH/AqcB6QH/AqcB6QH/AqcB6QH/AqcB6QH/AqcB6QH/AqcB6QH/AqcB6QH/AmcB2QH/Ap0B5gH/Ap0B5gH/AjYBPwFpDAADOAFfA8gB/wPIAf8DyAH/A8gB/wPIAf8DyAH/
+        A8gB/wPIAf8DrAH/A8IB/wPCAf8DOAFfDAABMQE4AT8BXwGkAdEB/gH/AaQB0QH+Af8BpAHRAf4B/wGkAdEB/gH/AaQB0QH+Af8BpAHRAf4B/wGkAdEB/gH/AaQB0QH+Af8BaAG0Af4B/wGYAcsB/gH/AZgBywH+
+        Af8BMQE4AT8BXwwAAToBMwE7AV8B3QGnAekB/wHdAacB6QH/Ad0BpwHpAf8B3QGnAekB/wHdAacB6QH/Ad0BpwHpAf8B3QGnAekB/wHdAacB6QH/Ac0BeQHdAf8B2gGdAeYB/wHaAZ0B5gH/AToBMwE7AV8MAAIz
+        ATsBXwKnAekB/wKnAekB/wKnAekB/wKnAekB/wKnAekB/wKnAekB/wKnAekB/wKnAekB/wJ5Ad0B/wKdAeYB/wKdAeYB/wIzATsBXwwAAx4BKwMzAVMDMgFSAzIBUgMyAVIDMgFSAzIBUgMzAVMDMgFSAzIBUgMy
+        AVIDMgFSAx4BKwwAAR0BHgEgASsBLgEzATkBUwEuATMBOAFSAS4BMwE4AVIBLgEzATgBUgEuATMBOAFSAS4BMwE4AVIBLgEzATkBUwEuATMBOAFSAS4BMwE4AVIBLgEzATgBUgEuATMBOAFSAR0BHgEgASsMAAEf
+        AR4BHwErATUBMAE2AVMBNQEwATUBUgE1ATABNQFSATUBMAE1AVIBNQEwATUBUgE1ATABNQFSATUBMAE2AVMBNQEwATUBUgE1ATABNQFSATUBMAE1AVIBNQEwATUBUgEfAR4BHwErDAACHgEfASsCMAE2AVMCMAE1
+        AVICMAE1AVICMAE1AVICMAE1AVICMAE1AVICMAE2AVMCMAE1AVICMAE1AVICMAE1AVICMAE1AVICHgEfASsMAAMyAVgDOgGgAzoBoAM6AaADOgGgAzoBoAM6AaADOgGgAzoBoAM6AaADOgGgAzoBoAM6AZoMAAE4
+        ATUBMgFYAU8BRAE4AaABTwFEATgBoAFPAUQBOAGgAU8BRAE4AaABTwFEATgBoAFPAUQBOAGgAU8BRAE4AaABTwFEATgBoAFPAUQBOAGgAU8BRAE4AaABTwFEATgBoAFOAUMBOQGaDAACOAEyAVgCTwE4AaACTwE4
+        AaACTwE4AaACTwE4AaACTwE4AaACTwE4AaACTwE4AaACTwE4AaACTwE4AaACTwE4AaACTwE4AaACTgE5AZoMAAEyATgBMwFYATgBTwE8AaABOAFPATwBoAE4AU8BPAGgATgBTwE8AaABOAFPATwBoAE4AU8BPAGg
+        ATgBTwE8AaABOAFPATwBoAE4AU8BPAGgATgBTwE8AaABOAFPATwBoAE5AU4BPAGaDAADOgGgA1gB/wNYAf8DWAH/A1gB/wNYAf8DWAH/AzIB/wNHAf8DWQHzA1cB7gNZAfIDXAH5AzoBoAgAAU8BRAE4AaAB4AGz
+        AYUB/wHgAbMBhQH/AeABswGFAf8B4AGzAYUB/wHgAbMBhQH/AeABswGFAf8BowFlAScB/wHSAZABTAH/AdQBqgGAAfMBzgGjAXgB7gHUAawBggHyAdwBtAGMAfkBTwFEATgBoAgAAk8BOAGgAuABhQH/AuABhQH/
+        AuABhQH/AuABhQH/AuABhQH/AuABhQH/AqMBJwH/AtIBTAH/AtQBgAHzAs4BeAHuAtQBggHyAtwBjAH5Ak8BOAGgCAABOAFPATwBoAGFAeABlAH/AYUB4AGUAf8BhQHgAZQB/wGFAeABlAH/AYUB4AGUAf8BhQHg
+        AZQB/wEnAaMBPAH/AUwB0gFiAf8BgAHUAY0B8wF4Ac4BhwHuAYIB1AGPAfIBjAHcAZgB+QE4AU8BPAGgCAADOgGgA1kB/wNZAf8DWQH/A1kB/wNaAf8DWQH/AzIB/wNIAf8DWwH/A1wB/gNbAf8DXAH+A1oB/AM6
+        AaAEAAFPAUQBOAGgAeEBtAGHAf8B4QG0AYcB/wHhAbQBhwH/AeEBtAGHAf8B4QG2AYoB/wHhAbQBhwH/AaMBZQEnAf8B0wGSAU8B/wHjAbkBjwH/AeEBtwGMAf4B4wG5AY8B/wHiAbgBjgH+Ad0BtAGIAfwBTwFE
+        ATgBoAQAAk8BOAGgAuEBhwH/AuEBhwH/AuEBhwH/AuEBhwH/AuEBigH/AuEBhwH/AqMBJwH/AtMBTwH/AuMBjwH/AuEBjAH+AuMBjwH/AuIBjgH+At0BiAH8Ak8BOAGgBAABOAFPATwBoAGHAeEBlgH/AYcB4QGW
+        Af8BhwHhAZYB/wGHAeEBlgH/AYoB4QGYAf8BhwHhAZYB/wEnAaMBPAH/AU8B0wFlAf8BjwHjAZwB/wGMAeEBmgH+AY8B4wGcAf8BjgHiAZsB/gGIAd0BlgH8ATgBTwE8AaAEAAM6AaADWwH/A1sB/wNbAf8DWwH/
+        A1sB/wNbAf8DMgH/A0gB/wNcAf8DXAH/A1wB/wNbAf8DWwH9AzoBoAQAAU8BRAE4AaAB4gG4AY0B/wHiAbgBjQH/AeIBuAGNAf8B4gG4AY0B/wHiAbgBjQH/AeIBuAGNAf8BowFlAScB/wHTAZMBUQH/AeMBuwGS
+        Af8B4wG7AZIB/wHjAbsBkgH/AeMBuQGPAf8B4AG3AY0B/QFPAUQBOAGgBAACTwE4AaAC4gGNAf8C4gGNAf8C4gGNAf8C4gGNAf8C4gGNAf8C4gGNAf8CowEnAf8C0wFRAf8C4wGSAf8C4wGSAf8C4wGSAf8C4wGP
+        Af8C4AGNAf0CTwE4AaAEAAE4AU8BPAGgAY0B4gGbAf8BjQHiAZsB/wGNAeIBmwH/AY0B4gGbAf8BjQHiAZsB/wGNAeIBmwH/AScBowE8Af8BUQHTAWYB/wGSAeMBnwH/AZIB4wGfAf8BkgHjAZ8B/wGPAeMBnAH/
+        AY0B4AGbAf0BOAFPATwBoAQAAzoBoANbAf8DWwH/A1sB/wNbAf8DWwH/A1sB/wMyAf8DSQH/A10B/wNcAf8DXAH/A1sB/wNcAf4DOgGgBAABTwFEATgBoAHjAbkBjwH/AeMBuQGPAf8B4wG5AY8B/wHjAbkBjwH/
+        AeMBuQGPAf8B4wG5AY8B/wGjAWUBJwH/AdQBlQFUAf8B5AG8AZMB/wHjAbsBkgH/AeMBuwGSAf8B4wG5AY8B/wHhAbcBjAH+AU8BRAE4AaAEAAJPATgBoALjAY8B/wLjAY8B/wLjAY8B/wLjAY8B/wLjAY8B/wLj
+        AY8B/wKjAScB/wLUAVQB/wLkAZMB/wLjAZIB/wLjAZIB/wLjAY8B/wLhAYwB/gJPATgBoAQAATgBTwE8AaABjwHjAZwB/wGPAeMBnAH/AY8B4wGcAf8BjwHjAZwB/wGPAeMBnAH/AY8B4wGcAf8BJwGjATwB/wFU
+        AdQBaQH/AZMB5AGhAf8BkgHjAZ8B/wGSAeMBnwH/AY8B4wGcAf8BjAHhAZoB/gE4AU8BPAGgBAADOgGgA10B/wNdAf8DXQH/A10B/wNdAf8DXQH/AzIB/wNKAf8DXQH/A10B/wNcAf8DWwH/A1sB/wM6AaAEAAFP
+        AUQBOAGgAeQBvAGTAf8B5AG8AZMB/wHkAbwBkwH/AeQBvAGTAf8B5AG8AZMB/wHkAbwBkwH/AaMBZQEnAf8B1QGXAVcB/wHkAb0BlQH/AeQBvAGTAf8B4wG7AZIB/wHjAbkBjwH/AeMBuQGPAf8BTwFEATgBoAQA
+        Ak8BOAGgAuQBkwH/AuQBkwH/AuQBkwH/AuQBkwH/AuQBkwH/AuQBkwH/AqMBJwH/AtUBVwH/AuQBlQH/AuQBkwH/AuMBkgH/AuMBjwH/AuMBjwH/Ak8BOAGgBAABOAFPATwBoAGTAeQBoQH/AZMB5AGhAf8BkwHk
+        AaEB/wGTAeQBoQH/AZMB5AGhAf8BkwHkAaEB/wEnAaMBPAH/AVcB1QFsAf8BlQHkAaIB/wGTAeQBoQH/AZIB4wGfAf8BjwHjAZwB/wGPAeMBnAH/ATgBTwE8AaAEAAM6AaADXgH/A14B/wNeAf8DXgH/A14B/wNe
+        Af8DMgH/A0sB/wNeAf8DXQH/A1wB/wNcAf8DXAH/AzoBoAQAAU8BRAE4AaAB5QG+AZYB/wHlAb4BlgH/AeUBvgGWAf8B5QG+AZYB/wHlAb4BlgH/AeUBvgGWAf8BowFlAScB/wHVAZgBWQH/AeUBvgGWAf8B5AG9
+        AZUB/wHjAbsBkgH/AeMBuwGSAf8B4wG7AZIB/wFPAUQBOAGgBAACTwE4AaAC5QGWAf8C5QGWAf8C5QGWAf8C5QGWAf8C5QGWAf8C5QGWAf8CowEnAf8C1QFZAf8C5QGWAf8C5AGVAf8C4wGSAf8C4wGSAf8C4wGS
+        Af8CTwE4AaAEAAE4AU8BPAGgAZYB5QGjAf8BlgHlAaMB/wGWAeUBowH/AZYB5QGjAf8BlgHlAaMB/wGWAeUBowH/AScBowE8Af8BWQHVAW0B/wGWAeUBowH/AZUB5AGiAf8BkgHjAZ8B/wGSAeMBnwH/AZIB4wGf
+        Af8BOAFPATwBoAQAAzsBmwNfAf8DXwH/A18B/wNfAf8DXwH/A18B/wMyAf8DRQH/A18B/wNeAf8DXQH/A1wB/wM8AbwDOgF7BAABTgFDATkBmwHlAcABmgH/AeUBwAGaAf8B5QHAAZoB/wHlAcABmgH/AeUBwAGa
+        Af8B5QHAAZoB/wGjAWUBJwH/AdEBjAFGAf8B5QHAAZoB/wHlAb4BlgH/AeQBvQGVAf8B4wG7AZIB/wFnAU8BNwG8AUYBPwE4AXsEAAJOATkBmwLlAZoB/wLlAZoB/wLlAZoB/wLlAZoB/wLlAZoB/wLlAZoB/wKj
+        AScB/wLRAUYB/wLlAZoB/wLlAZYB/wLkAZUB/wLjAZIB/wJnATcBvAJGATgBewQAATkBTgE8AZsBmgHlAaYB/wGaAeUBpgH/AZoB5QGmAf8BmgHlAaYB/wGaAeUBpgH/AZoB5QGmAf8BJwGjATwB/wFGAdEBXQH/
+        AZoB5QGmAf8BlgHlAaMB/wGVAeQBogH/AZIB4wGfAf8BNwFnAT8BvAE4AUYBOwF7BAADOwGWA2AB/wNgAf8DXwH/A2AB/wNfAf8DXwH/A2AB/wM0Af8DRQH/A18B/wNeAf8DPwGnAzkBdggAAU0BQwE5AZYB5gHC
+        AZ0B/wHmAcIBnQH/AeYBwQGbAf8B5gHCAZ0B/wHmAcEBmwH/AeYBwQGbAf8B5gHCAZ0B/wGpAWkBKQH/AdEBjAFGAf8B5QHAAZoB/wHlAb4BlgH/AWEBTgE7AacBRAE+ATgBdggAAk0BOQGWAuYBnQH/AuYBnQH/
+        AuYBmwH/AuYBnQH/AuYBmwH/AuYBmwH/AuYBnQH/AqkBKQH/AtEBRgH/AuUBmgH/AuUBlgH/AmEBOwGnAkQBOAF2CAABOQFNATwBlgGdAeYBqQH/AZ0B5gGpAf8BmwHmAagB/wGdAeYBqQH/AZsB5gGoAf8BmwHm
+        AagB/wGdAeYBqQH/ASkBqQE+Af8BRgHRAV0B/wGaAeUBpgH/AZYB5QGjAf8BOwFhAUEBpwE4AUQBOgF2CAADOwGPA2EB/wNhAf8DYQH/A2EB/wNhAf8DYAH/A2EB/wNgAf8DOQH/A18B/wNfAf8DOwGPDAABTAFD
+        AToBjwHnAcQBoAH/AecBxAGgAf8B5wHEAaAB/wHnAcQBoAH/AecBxAGgAf8B5wHDAZ4B/wHnAcQBoAH/AecBwwGeAf8BuQFzAS0B/wHlAcABmgH/AeUBwAGaAf8BTAFDAToBjwwAAkwBOgGPAucBoAH/AucBoAH/
+        AucBoAH/AucBoAH/AucBoAH/AucBngH/AucBoAH/AucBngH/ArkBLQH/AuUBmgH/AuUBmgH/AkwBOgGPDAABOgFMATwBjwGgAecBrAH/AaAB5wGsAf8BoAHnAawB/wGgAecBrAH/AaAB5wGsAf8BngHnAaoB/wGg
+        AecBrAH/AZ4B5wGqAf8BLQG5AUQB/wGaAeUBpgH/AZoB5QGmAf8BOgFMATwBjwwAAzsBhwNhAf8DYgH/A2IB/wNiAf8DYgH/A2EB/wNiAf8DYQH/Az4B/wNgAf8DXwH/AzsBhwwAAUkBQQE5AYcB5wHEAaAB/wHo
+        AcYBowH/AegBxgGjAf8B6AHGAaMB/wHoAcYBowH/AecBxAGgAf8B6AHGAaMB/wHnAcQBoAH/AcsBfgExAf8B5gHCAZ0B/wHlAcABmgH/AUkBQQE5AYcMAAJJATkBhwLnAaAB/wLoAaMB/wLoAaMB/wLoAaMB/wLo
+        AaMB/wLnAaAB/wLoAaMB/wLnAaAB/wLLATEB/wLmAZ0B/wLlAZoB/wJJATkBhwwAATkBSQE8AYcBoAHnAawB/wGjAegBrwH/AaMB6AGvAf8BowHoAa8B/wGjAegBrwH/AaAB5wGsAf8BowHoAa8B/wGgAecBrAH/
+        ATEBywFLAf8BnQHmAakB/wGaAeUBpgH/ATkBSQE8AYcMAAM6AX4DYgH/A2IB/wNiAf8DYgH/A2IB/wNiAf8DYgH/A2IB/wNEAf8DYAH/A2AB/wM6AX4MAAFHAUABOQF+AegBxwGlAf8B6AHHAaUB/wHoAccBpQH/
+        AegBxwGlAf8B6AHHAaUB/wHoAccBpQH/AegBxwGlAf8B6AHHAaUB/wHQAYsBRAH/AeYBwgGdAf8B5gHCAZ0B/wFHAUABOQF+DAACRwE5AX4C6AGlAf8C6AGlAf8C6AGlAf8C6AGlAf8C6AGlAf8C6AGlAf8C6AGl
+        Af8C6AGlAf8C0AFEAf8C5gGdAf8C5gGdAf8CRwE5AX4MAAE5AUcBOwF+AaUB6AGwAf8BpQHoAbAB/wGlAegBsAH/AaUB6AGwAf8BpQHoAbAB/wGlAegBsAH/AaUB6AGwAf8BpQHoAbAB/wFEAdABWwH/AZ0B5gGp
+        Af8BnQHmAakB/wE5AUcBOwF+DAADOQF0A2MB/wNjAf8DYwH/A2MB/wNjAf8DYwH/A2MB/wNjAf8DSgH/A2AB/wNgAf8DOQF0DAABRAE+ATgBdAHpAcgBpwH/AekByAGnAf8B6QHIAacB/wHpAcgBpwH/AekByAGn
+        Af8B6QHIAacB/wHpAcgBpwH/AekByAGnAf8B1AGWAVYB/wHmAcIBnQH/AeYBwgGdAf8BRAE+ATgBdAwAAkQBOAF0AukBpwH/AukBpwH/AukBpwH/AukBpwH/AukBpwH/AukBpwH/AukBpwH/AukBpwH/AtQBVgH/
+        AuYBnQH/AuYBnQH/AkQBOAF0DAABOAFEAToBdAGnAekBsgH/AacB6QGyAf8BpwHpAbIB/wGnAekBsgH/AacB6QGyAf8BpwHpAbIB/wGnAekBsgH/AacB6QGyAf8BVgHUAWsB/wGdAeYBqQH/AZ0B5gGpAf8BOAFE
+        AToBdAwAAzcBaQNjAf8DYwH/A2MB/wNjAf8DYwH/A2MB/wNjAf8DYwH/A08B/wNgAf8DYAH/AzcBaQwAAT8BOwE2AWkB6QHIAacB/wHpAcgBpwH/AekByAGnAf8B6QHIAacB/wHpAcgBpwH/AekByAGnAf8B6QHI
+        AacB/wHpAcgBpwH/AdkBoQFnAf8B5gHCAZ0B/wHmAcIBnQH/AT8BOwE2AWkMAAI/ATYBaQLpAacB/wLpAacB/wLpAacB/wLpAacB/wLpAacB/wLpAacB/wLpAacB/wLpAacB/wLZAWcB/wLmAZ0B/wLmAZ0B/wI/
+        ATYBaQwAATYBPwE4AWkBpwHpAbIB/wGnAekBsgH/AacB6QGyAf8BpwHpAbIB/wGnAekBsgH/AacB6QGyAf8BpwHpAbIB/wGnAekBsgH/AWcB2QF6Af8BnQHmAakB/wGdAeYBqQH/ATYBPwE4AWkMAAM0AV8DYwH/
+        A2MB/wNjAf8DYwH/A2MB/wNjAf8DYwH/A2MB/wNVAf8DYAH/A2AB/wM0AV8MAAE7ATgBMwFfAekByAGnAf8B6QHIAacB/wHpAcgBpwH/AekByAGnAf8B6QHIAacB/wHpAcgBpwH/AekByAGnAf8B6QHIAacB/wHd
+        AawBeQH/AeYBwgGdAf8B5gHCAZ0B/wE7ATgBMwFfDAACOwEzAV8C6QGnAf8C6QGnAf8C6QGnAf8C6QGnAf8C6QGnAf8C6QGnAf8C6QGnAf8C6QGnAf8C3QF5Af8C5gGdAf8C5gGdAf8COwEzAV8MAAEzATsBNQFf
+        AacB6QGyAf8BpwHpAbIB/wGnAekBsgH/AacB6QGyAf8BpwHpAbIB/wGnAekBsgH/AacB6QGyAf8BpwHpAbIB/wF5Ad0BigH/AZ0B5gGpAf8BnQHmAakB/wEzATsBNQFfDAADHgErAzABUwMwAVIDMAFSAzABUgMw
+        AVIDMAFSAzABUwMwAVIDMAFSAzABUgMwAVIDHgErDAABHwIeASsBNgEzATABUwE1ATIBMAFSATUBMgEwAVIBNQEyATABUgE1ATIBMAFSATUBMgEwAVIBNgEzATABUwE1ATIBMAFSATUBMgEwAVIBNQEyATABUgE1
+        ATIBMAFSAR8CHgErDAACHwEeASsCNgEwAVMCNQEwAVICNQEwAVICNQEwAVICNQEwAVICNQEwAVICNgEwAVMCNQEwAVICNQEwAVICNQEwAVICNQEwAVICHwEeASsMAAEeAR8BHgErATABNgExAVMBMAE1ATEBUgEw
+        ATUBMQFSATABNQExAVIBMAE1ATEBUgEwATUBMQFSATABNgExAVMBMAE1ATEBUgEwATUBMQFSATABNQExAVIBMAE1ATEBUgEeAR8BHgErDAABQgFNAT4HAAE+AwABKAMAAUADAAEwAwABAQEAAQEFAAGAAQEWAAP/
+        AgABBwEAAQcFAAEDAQABAwUAAQEBAAEBBQABAQEAAQEFAAEBAQABAQUAAQEBAAEBBQABAQEAAQEFAAEBAQABAQUAAQMBAAEDBQABBwEAAQcFAAEHAQABBwUAAQcBAAEHBQABBwEAAQcFAAEHAQABBwUAAQcBAAEH
+        BQABBwEAAQcFAAEHAQABBwEAAQcBAAEHAQABAwEAAQMBAAEDAQABAwEAAQEBAAEBAQABAQEAAQEBAAEBAQABAQEAAQEBAAEBAQABAQEAAQEBAAEBAQABAQEAAQEBAAEBAQABAQEAAQEBAAEBAQABAQEAAQEBAAEB
+        AQABAQEAAQEBAAEBAQABAQEAAQMBAAEDAQABAwEAAQMBAAEHAQABBwEAAQcBAAEHAQABBwEAAQcBAAEHAQABBwEAAQcBAAEHAQABBwEAAQcBAAEHAQABBwEAAQcBAAEHAQABBwEAAQcBAAEHAQABBwEAAQcBAAEH
+        AQABBwEAAQcBAAEHAQABBwEAAQcBAAEHAQABBwEAAQcBAAEHAQABBwEAAQMBAAEDAQABAwEAAQMBAAEBAQABAQEAAQEBAAEBAQABAQEAAQEBAAEBAQABAQEAAQEBAAEBAQABAQEAAQEBAAEBAQABAQEAAQEBAAEB
+        AQABAQEAAQEBAAEBAQABAQEAAQEBAAEBAQABAQEAAQEBAAEDAQABAwEAAQMBAAEDAQABBwEAAQcBAAEHAQABBwEAAQcBAAEHAQABBwEAAQcBAAEHAQABBwEAAQcBAAEHAQABBwEAAQcBAAEHAQABBwEAAQcBAAEH
+        AQABBwEAAQcBAAEHAQABBwEAAQcBAAEHAQABBwEAAQcBAAEHAQABBws='))
+$imgResult.ImageStream          = $imgResult_BinaryFomatter.Deserialize($imgResult_MemoryStream)
+$imgResult_BinaryFomatter       = $null
+$imgResult_MemoryStream         = $null
+
+$lbl_Description               = New-Object 'System.Windows.Forms.Label'
+$lbl_Description.Location      = ' 12,  12'
+$lbl_Description.Size          = '370,  48'
+$lbl_Description.Font          = $sysFont
+$lbl_Description.Text          = 'Click the REFRESH button to load some example items'
+$MainFORM.Controls.Add($lbl_Description)
+
+$cmoComboBox                   = New-Object 'System.Windows.Forms.ComboBox'
+$cmoComboBox.ItemHeight        = '22'
+$cmoComboBox.DrawMode          = 'OwnerDrawFixed'
+$cmoComboBox.Add_DrawItem($ComboIcons_OnDrawItem)
+$cmoComboBox.Add_SelectedIndexChanged($ComboIcons_SelectedIndexChanged)
+$cmoComboBox.Location          = ' 12,  65'
+$cmoComboBox.Size              = '370,  35'
+$cmoComboBox.Font              = $sysFont
+$cmoComboBox.DropDownStyle     = 'DropDownList'
+$MainFORM.Controls.Add($cmoComboBox)
+
+$chkShowDisabled                = New-Object 'System.Windows.Forms.CheckBox'
+$chkShowDisabled.Location       = ' 12, 110'
+$chkShowDisabled.Size           = '200,  25'
+$chkShowDisabled.Text           = 'Show "Disabled Items" Example'
+$chkShowDisabled.Checked        = $False
+$MainFORM.Controls.Add($chkShowDisabled)
+
+$btn_Refresh                    = New-Object 'System.Windows.Forms.Button'
+$btn_Refresh.Location           = '220, 110'
+$btn_Refresh.Size               = ' 75,  25'
+$btn_Refresh.Font               = $sysFont
+$btn_Refresh.Text               = 'Refresh'
+$btn_Refresh.Add_Click($btn_Refresh_Click)
+$MainFORM.Controls.Add($btn_Refresh)
+
+$btn_Cancel                     = New-Object 'System.Windows.Forms.Button'
+$btn_Cancel.Location            = '307, 110'
+$btn_Cancel.Size                = ' 75,  25'
+$btn_Cancel.Font                = $sysFont
+$btn_Cancel.Text                = 'Cancel'
+$btn_Cancel.DialogResult        = [System.Windows.Forms.DialogResult]::Cancel
+$MainFORM.CancelButton         = $btn_Cancel
+$MainFORM.Controls.Add($btn_Cancel)
+
+ForEach ($control In $MainFORM.Controls) { $control.Font = $sysFont }
+$btn_Refresh_Click.Invoke()
+$MainFORM.ShowDialog() | Out-Null
