@@ -24,6 +24,10 @@ GUI form to generate random passwords for you
 Quick an dirty script to remove any snapshots from VMware that contain the string "(Remove On dd/mm/yyyy)" anywhere in the description.  I run this daily in my environment so that anyone creating snapshots can have them automatically removed on the specific date.
 ###
 
+### SCOM-MaintenanceMode.ps1
+A PowerShell version of my SCOM Maintentance Mode tool.  This works with SCOM 2016 only.
+###
+
 ### Show-InputForm
 Multiple use GUI for asking for a variety of input types that can also perform simple validation.  See https://imgur.com/a/ZRXGT for images
 ###
