@@ -251,10 +251,10 @@ Function Display-MainForm
 
         $rad_t2_0x_CheckedChanged.Invoke()
 
-#        $script:tb1 = $tab_Page1; $tab_Pages.TabPages.Remove($tab_Page1)
-#        $script:tb2 = $tab_Page2; $tab_Pages.TabPages.Remove($tab_Page2)
-#        $script:tb3 = $tab_Page3; $tab_Pages.TabPages.Remove($tab_Page3)
-#        $script:tb4 = $tab_Page4; $tab_Pages.TabPages.Remove($tab_Page4)
+        $script:tb1 = $tab_Page1; $tab_Pages.TabPages.Remove($tab_Page1)
+        $script:tb2 = $tab_Page2; $tab_Pages.TabPages.Remove($tab_Page2)
+        $script:tb3 = $tab_Page3; $tab_Pages.TabPages.Remove($tab_Page3)
+        $script:tb4 = $tab_Page4; $tab_Pages.TabPages.Remove($tab_Page4)
 
         # Set some specific fonts
         $lbl_t0_01.Font = $sysFontBold
