@@ -16,7 +16,7 @@ Clear-Host
 ###################################################################################################
 $SubIcons_DrawColumnHeader = {
     [System.Windows.Forms.DrawListViewColumnHeaderEventArgs]$e = $_
-    $e.DrawDefault = $True
+    $e.DrawDefault = $true
     $e.DrawBackground()
     $e.DrawText()
 }
@@ -24,14 +24,25 @@ $SubIcons_DrawColumnHeader = {
 $SubIcons_DrawSubItem = {
     [System.Windows.Forms.DrawListViewSubItemEventArgs]$e = $_
 
-    If ($e.SubItem.Text.Length -le 5) { $e.DrawDefault = $True }
+    If ($e.SubItem.Text.Length -le 5) {
+        $e.DrawDefault = $true
+    }
     Else
     {
-        If ($e.SubItem.Text.Contains('|') -eq $True)
+        If ($e.SubItem.Text.Contains('|') -eq $true)
         {
             [System.Drawing.Image]$icon = ($imgResult.Images[$e.SubItem.Text.Split('|')[1] -as [int]])
             [int]$xPos = ($e.SubItem.Bounds.X + (($e.SubItem.Bounds.Width  / 2) -as [int]) - (($icon.Width  /2) -as [int]))
             [int]$yPos = ($e.SubItem.Bounds.Y + (($e.SubItem.Bounds.Height / 2) -as [int]) - (($icon.Height /2) -as [int]))
+        }
+
+        If ($e.Item.Selected -eq $true) {
+            $r = New-Object 'System.Drawing.Rectangle'($e.Bounds.Left, $e.Bounds.Top, $e.Bounds.Width, $e.Bounds.Height)
+            $e.Graphics.FillRectangle([System.Drawing.SystemBrushes]::Highlight, $r)
+            $e.Item.ForeColor = [System.Drawing.SystemColors]::HighlightText
+        }
+        Else {
+            $e.Item.ForeColor = [System.Drawing.SystemColors]::WindowText
         }
 
         Switch ($e.SubItem.Text.Substring(0,5).ToUpper())
@@ -39,7 +50,6 @@ $SubIcons_DrawSubItem = {
             'ICON|'
             {
                 $r = New-Object 'System.Drawing.Rectangle'($xPos, $yPos, $icon.Width, $icon.Height)
-
                 $e.DrawDefault = $false
                 $e.Graphics.DrawImage($icon, $r)
             }
@@ -57,7 +67,7 @@ $SubIcons_DrawSubItem = {
                 $e.Graphics.DrawString($e.SubItem.Text.Split('|')[2], $sysFont, $fColor, $rS)
             }
 
-            Default { $e.DrawDefault = $True }
+            Default { $e.DrawDefault = $true }
         }
     }
 }
@@ -101,7 +111,7 @@ Function Display-MainForm
         For ($i = 1; $i -le 7; $i++) { $newItem.SubItems.Add('ICON|' + ('1','2' | Get-Random)) }
 
         $lstList.Items.Add($newItem)
-        If ($StartEdit -eq $True) { $newItem.BeginEdit() }
+        If ($StartEdit -eq $true) { $newItem.BeginEdit() }
         $lstList.SelectedItems.Clear()
     }
 
@@ -166,16 +176,17 @@ Function Display-MainForm
     # Define ListView Control
     $lstList                      = New-Object 'System.Windows.Forms.ListView'
     # Add OwnerDraw Code
-    $lstList.OwnerDraw            = $True
+    $lstList.OwnerDraw            = $true
     $lstList.Add_DrawSubItem($SubIcons_DrawSubItem)
     $lstList.Add_DrawColumnHeader($SubIcons_DrawColumnHeader)
+    $lstList.DoubleBuffered       = $true
     # Set ListView properties
     $lstList.Location             = ' 12,  12'
     $lstList.Size                 = '630, 208'
-    $lstList.LabelEdit            = $True
-    $lstList.FullRowSelect        = $True
-    $lstList.GridLines            = $True
-    $lstList.HideSelection        = $True
+    $lstList.LabelEdit            = $true
+    $lstList.FullRowSelect        = $true
+    $lstList.GridLines            = $true
+    $lstList.HideSelection        = $true
     $lstList.HeaderStyle          = 'Nonclickable'
     $lstList.SmallImageList       = $imgResult
     $lstList.Sorting              = 'Ascending'
