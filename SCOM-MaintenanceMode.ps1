@@ -1,6 +1,10 @@
-﻿#Requires         -Version 4
+#Requires         -Version 4
+Param (
+    [string]$ManagementServer
+)
+
 Set-StrictMode    -Version 2
-Remove-Variable * -ErrorAction SilentlyContinue
+Remove-Variable * -Exclude ManagementServer -ErrorAction SilentlyContinue
 Clear-Host
 
 Write-Host ''
@@ -201,27 +205,39 @@ Function Group-SearchResults ([string]$ByType)
 $SubIcons_DrawColumnHeader = {
     [System.Windows.Forms.DrawListViewColumnHeaderEventArgs]$e = $_
     $e.DrawDefault = $True
+    $e.DrawBackground()
+    $e.DrawText()
 }
 $SubIcons_DrawSubItem = {
     [System.Windows.Forms.DrawListViewSubItemEventArgs]$e = $_
 
-    If ($e.SubItem.Text.Length -le 5) { $e.DrawDefault = $True }
+    If ($e.SubItem.Text.Length -le 5) {
+        $e.DrawDefault = $True
+    }
     Else
     {
         If ($e.SubItem.Text.Contains('|') -eq $True)
         {
             [System.Drawing.Image]$icon = ($imgList_Search.Images[$e.SubItem.Text.Split('|')[1] -as [int]])
-            [int]$xPos = ($e.SubItem.Bounds.X + (($e.SubItem.Bounds.Width  / 2) -as [int]) - (($icon.Width  /2) -as [int]))
-            [int]$yPos = ($e.SubItem.Bounds.Y + (($e.SubItem.Bounds.Height / 2) -as [int]) - (($icon.Height /2) -as [int]))
+            [int]$xPos = ($e.SubItem.Bounds.X + (($e.SubItem.Bounds.Width  / 2) -as [int]) - (($icon.Width  / 2) -as [int]))
+            [int]$yPos = ($e.SubItem.Bounds.Y + (($e.SubItem.Bounds.Height / 2) -as [int]) - (($icon.Height / 2) -as [int]))
+        }
+
+        If ($e.Item.Selected -eq $true) {
+            $r = New-Object 'System.Drawing.Rectangle'($e.Bounds.Left, $e.Bounds.Top, $e.Bounds.Width, $e.Bounds.Height)
+            $e.Graphics.FillRectangle([System.Drawing.SystemBrushes]::Highlight, $r)
+            $e.Item.ForeColor = [System.Drawing.SystemColors]::HighlightText
+        }
+        Else {
+            $e.Item.ForeColor = [System.Drawing.SystemColors]::WindowText
         }
 
         Switch ($e.SubItem.Text.Substring(0,5).ToUpper())
         {
             'ICON|'
             {
-                $r = New-Object 'System.Drawing.Rectangle'($xPos, $yPos, $icon.Width, $icon.Height)
-
                 $e.DrawDefault = $false
+                $r = New-Object 'System.Drawing.Rectangle'($xPos, $yPos, $icon.Width, $icon.Height)
                 $e.Graphics.DrawImage($icon, $r)
             }
 
@@ -249,6 +265,12 @@ Function Display-MainForm
         ForEach ($control In $MainForm.Controls)                                        { $control.Font = $sysFont }
         ForEach ($tab     In $tab_Pages.TabPages) { ForEach ($control In $tab.Controls) { $control.Font = $sysFont } }
 
+        # Set some specific fonts
+        $lbl_t0_01.Font = $sysFontBold
+        $lbl_t2_01.Font = $sysFontBold
+        $lbl_t2_02.Font = $sysFontBold
+        $lbl_t2_03.Font = $sysFontBold
+
         $rad_t2_0x_CheckedChanged.Invoke()
 
         $script:tb1 = $tab_Page1; $tab_Pages.TabPages.Remove($tab_Page1)
@@ -256,11 +278,7 @@ Function Display-MainForm
         $script:tb3 = $tab_Page3; $tab_Pages.TabPages.Remove($tab_Page3)
         $script:tb4 = $tab_Page4; $tab_Pages.TabPages.Remove($tab_Page4)
 
-        # Set some specific fonts
-        $lbl_t0_01.Font = $sysFontBold
-        $lbl_t2_01.Font = $sysFontBold
-        $lbl_t2_02.Font = $sysFontBold
-        $lbl_t2_03.Font = $sysFontBold
+        $txt_t0_01.Text = $ManagementServer
     }
 
     $MainFORM_FormClosing = [System.Windows.Forms.FormClosingEventHandler] {
@@ -1119,7 +1137,7 @@ Function Display-MainForm
     $lst_t3_01.View                     = 'Details'
     $lst_t3_01_col_01                   = New-Object 'System.Windows.Forms.ColumnHeader'
     $lst_t3_01_col_01.Text              = 'Server Name'
-    $lst_t3_01_col_01.Width             = (($lst_t3_01.Width - 64) - ([System.Windows.Forms.SystemInformation]::VerticalScrollBarWidth + 4))
+    $lst_t3_01_col_01.Width             = (($lst_t3_01.Width - 16) - ([System.Windows.Forms.SystemInformation]::VerticalScrollBarWidth + 4))
     $lst_t3_01.Columns.Add($lst_t3_01_col_01)
     $lst_t3_01_col_02                   = New-Object 'System.Windows.Forms.ColumnHeader'
     $lst_t3_01_col_02.Text              = ''     # Current Maintenance Mode State
@@ -1131,7 +1149,7 @@ Function Display-MainForm
     $lst_t3_01.Columns.Add($lst_t3_01_col_03)
     $lst_t3_01_col_04                   = New-Object 'System.Windows.Forms.ColumnHeader'
     $lst_t3_01_col_04.Text              = 'State'    # Maintenance Mode Progress
-    $lst_t3_01_col_04.Width             = '64'
+    $lst_t3_01_col_04.Width             = '16'
     $lst_t3_01_col_04.TextAlign         = 'Center'
     $lst_t3_01.Columns.Add($lst_t3_01_col_04)
     $lst_t3_01.OwnerDraw                = $True
@@ -1181,15 +1199,16 @@ Function Display-MainForm
     $lst_t4_01.HeaderStyle              = 'None'
     $lst_t4_01.LabelEdit                = $False
     $lst_t4_01.FullRowSelect            = $True
+    $lst_t4_01.MultiSelect              = $False
     $lst_t4_01.SmallImageList           = $imgList_Search
     $lst_t4_01.View                     = 'Details'
     $lst_t4_01_col_01                   = New-Object 'System.Windows.Forms.ColumnHeader'
     $lst_t4_01_col_01.Text              = ''
-    $lst_t4_01_col_01.Width             = (($lst_t4_01.Width - 64) - ([System.Windows.Forms.SystemInformation]::VerticalScrollBarWidth + 4))
+    $lst_t4_01_col_01.Width             = (($lst_t4_01.Width - 16) - ([System.Windows.Forms.SystemInformation]::VerticalScrollBarWidth + 4))
     $lst_t4_01.Columns.Add($lst_t4_01_col_01)
     $lst_t4_01_col_02                   = New-Object 'System.Windows.Forms.ColumnHeader'
     $lst_t4_01_col_02.Text              = ''
-    $lst_t4_01_col_02.Width             = '64'
+    $lst_t4_01_col_02.Width             = '16'
     $lst_t4_01_col_02.TextAlign         = 'Center'
     $lst_t4_01.Columns.Add($lst_t4_01_col_02)
     $lst_t4_01_col_03                   = New-Object 'System.Windows.Forms.ColumnHeader'
