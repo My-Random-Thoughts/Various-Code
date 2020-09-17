@@ -99,4 +99,6 @@ This is a great way to keep your validation scripts up to date when company stan
 
 The code here is just an example and can be used as a template within your company if you wish.  Have fun with it, and help keep your server name validation up to date.
 
+Just a quick note, none of these functions include any comment-based help to help cut down on the length, but you really should use it as much as you can.
+
 Enjoy.
