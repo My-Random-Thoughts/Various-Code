@@ -11,10 +11,10 @@
 
     .EXAMPLE
         ConvertFrom-ISO8601Duration -InputValue 'P2DT12H30S'
-        Returns '2 days, 12 hours, 30 seconds'
+        Returns a time span object
 
     .EXAMPLE
-        ConvertFrom-ISO8601Duration -InputValue 'PT2H3M4S'
+        ConvertFrom-ISO8601Duration -InputValue 'PT2H3M4S' -AsString
         Returns '2 hours 3 minutes 4 seconds'
 
     .NOTES
@@ -26,7 +26,9 @@
 
     Param (
         [Parameter(Mandatory = $true, ValueFromPipeline)]
-        [string]$InputValue
+        [string]$InputValue,
+
+        [switch]$AsString
     )
 
     Begin {
@@ -36,6 +38,10 @@
 
     Process {
         [timespan]$timeSpan   = ([System.Xml.XmlConvert]::ToTimeSpan($InputValue))
+
+        If (-not $AsString.IsPresent) {
+            Return $timeSpan
+        }
 
         ForEach ($prop In $properties) {
             If ($timeSpan.$prop -eq 1) { $return += "$($timeSpan.$prop) $($prop.TrimEnd('s')), " }
