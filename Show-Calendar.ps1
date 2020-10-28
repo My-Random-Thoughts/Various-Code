@@ -1,4 +1,4 @@
-﻿Function Show-FullCalendar {
+Function Show-FullCalendar {
 <#
     .SYNOPSIS
         Displays the full 12 monthly calendar as a grid.
@@ -150,7 +150,7 @@ Function Show-Calendar {
 
         For ($i = 0; $i -lt 7; $i++) {
             # Ensure day names are always two characters long
-            [string[]]$dayHeader += $(($shortDayNames[$i + $firstDayOfWeek]).Substring(0, 2).PadLeft(2) + '  ')
+            [string[]]$dayHeader += $(($shortDayNames[$i + $firstDayOfWeek]).PadLeft(2).Substring(0, 2) + '  ')
         }
 
         # Pad start of month if required
