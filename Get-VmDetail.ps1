@@ -105,7 +105,6 @@ Function Get-VmDetail {
             'byName' {
                 ForEach ($vmName In $Name) {
                     $getView = @(Get-View -Filter @{'Config.Name' = $vmName} @getViewParameters)
-                    ($getView | ConvertTo-Xml -Depth 10).Save("C:\_Scripts\$vmName.xml")
 
                     If ($getView) {
                         $iResults += (__internal_AddMember -__getVirtualMachine $getView)
