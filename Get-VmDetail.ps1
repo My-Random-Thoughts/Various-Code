@@ -56,7 +56,7 @@ Function Get-VmDetail {
 
     [CmdletBinding(DefaultParameterSetName = 'byName')]
     Param (
-        [Parameter(Mandatory, ParameterSetName = 'byName', ValueFromPipeline)]
+        [Parameter(Mandatory, ParameterSetName = 'byName', ValueFromPipeline, ValueFromRemainingArguments)]
         [string[]]$Name,
 
         [Parameter(Mandatory, ParameterSetName = 'byNote')]
