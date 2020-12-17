@@ -40,11 +40,11 @@ Function Get-VmDetail {
         Returns all VMs that contain the string 'SERVER00'
 
     .EXAMPLE
-        Get-VmDetail -Note 'Demo Server' -VIServer viserver001
+        Get-VmDetail -Note 'Demo Server'
         Returns all VMs that have annotations containing the string shown
 
     .EXAMPLE
-        'SERVER001', 'SERVER002', 'SERVER003' | Get-VmDetail -VIServer viserver001
+        'SERVER001', 'SERVER002', 'SERVER003' | Get-VmDetail
         Returns details for the VMs that contains the strings shown
 
     .NOTES
