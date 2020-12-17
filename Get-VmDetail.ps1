@@ -194,7 +194,8 @@ Function Get-VmDetail {
                         $ipItem = [pscustomobject]@{
                             Network    = $guestNet.Network
                             MacAddress = $guestNet.MacAddress
-                            IpAddress = @()
+                            IpAddress  = @()
+                            Connected  = $guestNet.Connected
                         }
 
                         ForEach ($ipAddress In ($guestNet.IpAddress)) {
