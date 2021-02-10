@@ -191,11 +191,20 @@ Function Get-VmDetail {
                 # IP ADDRESS
                 If ($($each.Guest.Net.Count) -gt 0) {
                     ForEach ($guestNet In @($each.Guest.Net)) {
+
+                        [string]$hardwareType = 'Unknown'
+                        $hardwareType = ($each.Config.Hardware.Device.ForEach({
+                            If ($_.MacAddress -eq $guestNet.MacAddress) {
+                                Return $_.GetType().ToString().Replace('VMware.Vim.Virtual', '')
+                            }
+                        }))
+
                         $ipItem = [pscustomobject]@{
-                            Network    = $guestNet.Network
-                            MacAddress = $guestNet.MacAddress
-                            IpAddress  = @()
-                            Connected  = $guestNet.Connected
+                            Network      = $guestNet.Network
+                            MacAddress   = $guestNet.MacAddress
+                            HardwareType = $hardwareType
+                            IpAddress    = @()
+                            Connected    = $guestNet.Connected
                         }
 
                         ForEach ($ipAddress In ($guestNet.IpAddress)) {
