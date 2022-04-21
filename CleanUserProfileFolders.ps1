@@ -16,6 +16,7 @@ Else
 
 [array] $users       = Get-ChildItem -Path   $profilePath
 [array] $paths       = (
+                        '\AppData\Local\Microsoft\Edge\User Data\Service Worker',
                         '\AppData\Local\Microsoft\Windows\Temporary Internet Files',
                         '\AppData\Local\Microsoft\Windows\WebCache',
                         '\AppData\Local\Microsoft\Windows\WER',
@@ -25,7 +26,14 @@ Else
                         '\AppData\Local\CrashDumps',
                         '\AppData\Local\Temp',
                         '\AppData\LocalLow\Sun\Java\Deployment\cache\6.0',
-                        '\AppData\Local\Microsoft\Microsoft.EnterpriseManagement.Monitoring.Console'
+                        '\AppData\Local\Microsoft\Microsoft.EnterpriseManagement.Monitoring.Console',
+                        '\AppData\Roaming\Code\Cache',
+                        '\AppData\Roaming\Code\CachedData',
+                        '\AppData\Roaming\Code\Code Cache',
+                        '\AppData\Roaming\Code\logs',
+                        '\AppData\Roaming\Default\Service Worker',
+                        '\AppData\Roaming\Default\Cache',
+                        '\AppData\Roaming\Default\Code Cache'
                        )
 Write-Host ' Complete'
 Write-Host 'Scanning User Folders... ' -NoNewline
