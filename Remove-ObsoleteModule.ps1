@@ -1,5 +1,5 @@
 ﻿Function Remove-ObsoleteModule {
-    [CmdletBinding(SupportsShouldProcess)]
+    [CmdletBinding(SupportsShouldProcess, DefaultParameterSetName = 'None')]
     Param (
         [Parameter(ParameterSetName = 'byName')]
         [string]$Name,
