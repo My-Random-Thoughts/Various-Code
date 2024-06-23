@@ -494,6 +494,7 @@ Function Show-InputForm
             # List of text boxes
             [int]$itemCount = ($CurrentValue.Count)
             If ($itemCount -ge 5) { [int]$numberOfTextBoxes = $itemCount + 1 } Else { [int]$numberOfTextBoxes = 5 }
+            If (-not $CurrentValue) { $CurrentValue = "" }
             $numberOfTextBoxes--    # Count from zero
 
             # Add 'Add' button
